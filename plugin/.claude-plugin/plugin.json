@@ -1,0 +1,12 @@
+{
+  "name": "code-earn",
+  "version": "0.1.0",
+  "description": "Earn money while waiting for AI agent responses. Displays text ads during idle time and tracks earnings.",
+  "author": {
+    "name": "brandazine",
+    "email": "hello@codearn.dev"
+  },
+  "homepage": "https://web-olive-three-47.vercel.app",
+  "license": "MIT",
+  "keywords": ["ads", "earnings", "passive-income", "developer-tools"]
+}
