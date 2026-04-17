@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useCallback, useState } from "react";
+import { useT } from "@/lib/i18n";
 
 declare global {
   interface Window {
@@ -9,281 +10,23 @@ declare global {
   }
 }
 
-// ─── Data ────────────────────────────────────────────────────────────────────
-
-const tips = [
-  // Claude Code
-  {
-    category: "Claude Code",
-    tag: "CC",
-    text: "/compact 명령으로 컨텍스트를 압축하면 긴 세션에서도 토큰을 절약할 수 있습니다.",
-  },
-  {
-    category: "Claude Code",
-    tag: "CC",
-    text: "CLAUDE.md 파일에 프로젝트 규칙을 작성하면 에이전트가 자동으로 참고합니다.",
-  },
-  {
-    category: "Claude Code",
-    tag: "CC",
-    text: "Shift+Tab으로 여러 줄을 입력하면 복잡한 명령도 한 번에 전달할 수 있습니다.",
-  },
-  {
-    category: "Claude Code",
-    tag: "CC",
-    text: "/cost 명령으로 현재 세션의 토큰 사용량과 비용을 실시간으로 확인하세요.",
-  },
-  {
-    category: "Claude Code",
-    tag: "CC",
-    text: "MCP 서버를 연결하면 데이터베이스, Slack, GitHub 등 외부 도구와 연동됩니다.",
-  },
-  {
-    category: "Claude Code",
-    tag: "CC",
-    text: "Hook 설정으로 PreToolUse, PostToolUse 이벤트에 자동 명령을 실행할 수 있습니다.",
-  },
-  {
-    category: "Claude Code",
-    tag: "CC",
-    text: "Git worktree를 활용하면 여러 브랜치를 동시에 서로 다른 디렉토리에서 작업할 수 있습니다.",
-  },
-  {
-    category: "Claude Code",
-    tag: "CC",
-    text: "Plan 모드를 사용하면 에이전트가 실행 전에 계획을 수립하고 검토를 기다립니다.",
-  },
-  {
-    category: "Claude Code",
-    tag: "CC",
-    text: "/clear 명령으로 대화 히스토리를 초기화하면 새로운 컨텍스트로 시작할 수 있습니다.",
-  },
-  {
-    category: "Claude Code",
-    tag: "CC",
-    text: "AGENTS.md 파일로 서브에이전트별 역할과 권한을 세밀하게 제어할 수 있습니다.",
-  },
-  // GitHub Copilot
-  {
-    category: "GitHub Copilot",
-    tag: "GH",
-    text: "Tab 키로 Copilot 제안을 수락하고, Alt+] / Alt+[ 로 다음·이전 제안을 탐색하세요.",
-  },
-  {
-    category: "GitHub Copilot",
-    tag: "GH",
-    text: "주석으로 의도를 명확히 작성하면 Copilot이 훨씬 정확한 코드를 제안합니다.",
-  },
-  {
-    category: "GitHub Copilot",
-    tag: "GH",
-    text: "Copilot Chat에서 /explain, /fix, /tests 슬래시 명령을 사용하면 빠른 작업이 가능합니다.",
-  },
-  {
-    category: "GitHub Copilot",
-    tag: "GH",
-    text: "여러 파일을 열어두면 Copilot이 프로젝트 문맥을 더 잘 이해하여 제안의 질이 올라갑니다.",
-  },
-  {
-    category: "GitHub Copilot",
-    tag: "GH",
-    text: "Copilot Workspace로 이슈에서 PR까지 전체 개발 플로우를 자동화할 수 있습니다.",
-  },
-  // General AI Coding
-  {
-    category: "AI 코딩 일반",
-    tag: "AI",
-    text: "AI에게 코드를 요청할 때 입출력 예시를 함께 제공하면 정확도가 크게 높아집니다.",
-  },
-  {
-    category: "AI 코딩 일반",
-    tag: "AI",
-    text: "생성된 코드를 그대로 쓰지 말고, 항상 로직을 이해하고 테스트를 작성하세요.",
-  },
-  {
-    category: "AI 코딩 일반",
-    tag: "AI",
-    text: "AI에게 '왜 이 방법을 선택했나요?'를 물으면 대안과 트레이드오프를 파악할 수 있습니다.",
-  },
-  {
-    category: "AI 코딩 일반",
-    tag: "AI",
-    text: "에러 메시지 전체를 복사해서 붙여넣으면 AI가 스택 트레이스를 분석해 원인을 찾습니다.",
-  },
-  {
-    category: "AI 코딩 일반",
-    tag: "AI",
-    text: "리팩토링 요청 시 '변경 범위를 최소화하고 기존 패턴을 유지해줘'라고 명시하면 좋습니다.",
-  },
-  {
-    category: "AI 코딩 일반",
-    tag: "AI",
-    text: "복잡한 기능은 한 번에 요청하지 말고 작은 단계로 나눠 대화하며 구현하세요.",
-  },
-  {
-    category: "AI 코딩 일반",
-    tag: "AI",
-    text: "AI가 생성한 SQL 쿼리는 실행 계획(EXPLAIN)으로 성능을 반드시 확인하세요.",
-  },
-];
-
-const trendingRepos = [
-  {
-    name: "anthropics/claude-code",
-    stars: "12.4k",
-    desc: "터미널에서 직접 Claude AI와 페어 프로그래밍할 수 있는 공식 CLI 도구",
-    lang: "TypeScript",
-    langColor: "#3178c6",
-  },
-  {
-    name: "microsoft/vscode",
-    stars: "165k",
-    desc: "가장 인기 있는 오픈소스 코드 에디터. Copilot, 확장성, 멀티 플랫폼 지원",
-    lang: "TypeScript",
-    langColor: "#3178c6",
-  },
-  {
-    name: "continuedev/continue",
-    stars: "21k",
-    desc: "VS Code / JetBrains용 오픈소스 AI 코딩 어시스턴트. 로컬 모델 연동 가능",
-    lang: "TypeScript",
-    langColor: "#3178c6",
-  },
-  {
-    name: "ollama/ollama",
-    stars: "98k",
-    desc: "로컬에서 Llama 3, Mistral, Gemma 등 LLM을 손쉽게 실행하는 툴",
-    lang: "Go",
-    langColor: "#00aed8",
-  },
-  {
-    name: "cline/cline",
-    stars: "38k",
-    desc: "VS Code에서 AI가 파일을 직접 수정·실행하는 자율 코딩 에이전트 확장",
-    lang: "TypeScript",
-    langColor: "#3178c6",
-  },
-  {
-    name: "vercel/ai",
-    stars: "14k",
-    desc: "React/Next.js에서 스트리밍 AI UI를 빠르게 구축하는 공식 AI SDK",
-    lang: "TypeScript",
-    langColor: "#3178c6",
-  },
-];
-
-const devNews = [
-  {
-    time: "2시간 전",
-    title: "Claude 4 Opus 출시 — 코딩 벤치마크에서 GPT-5 능가",
-    tag: "AI",
-  },
-  {
-    time: "5시간 전",
-    title: "GitHub Copilot, 에이전트 모드 GA — 이슈에서 PR까지 자동화",
-    tag: "도구",
-  },
-  {
-    time: "1일 전",
-    title: "Next.js 16 정식 출시 — React 19 완전 지원·Turbopack 기본 설정",
-    tag: "프레임워크",
-  },
-  {
-    time: "1일 전",
-    title: "Stack Overflow 설문: 개발자 76%가 AI 코딩 도구 매일 사용",
-    tag: "업계",
-  },
-  {
-    time: "2일 전",
-    title: "Google DeepMind AlphaCode 3, IOI 금메달 수준 도달",
-    tag: "AI",
-  },
-  {
-    time: "3일 전",
-    title: "Rust, JavaScript를 제치고 WebAssembly 생태계 1위 언어 등극",
-    tag: "언어",
-  },
-];
-
-const quizItems = [
-  {
-    question: "`git rebase`는 무엇을 하는 명령어인가요?",
-    code: null,
-    options: [
-      "새 브랜치를 만든다",
-      "커밋 히스토리를 다른 베이스 위로 재배치한다",
-      "원격 브랜치를 로컬로 복제한다",
-      "스테이징 영역을 초기화한다",
-    ],
-    answer: 1,
-    explanation:
-      "rebase는 현재 브랜치의 커밋들을 지정한 베이스 커밋 위에 순서대로 재적용합니다. merge와 달리 선형 히스토리를 유지합니다.",
-  },
-  {
-    question: "다음 TypeScript 코드의 출력 결과는?",
-    code: `type T = string extends unknown ? 'yes' : 'no';`,
-    options: ["'no'", "'yes'", "TypeError", "undefined"],
-    answer: 1,
-    explanation:
-      "string은 unknown의 서브타입이므로 조건부 타입 'string extends unknown'은 true가 되어 'yes'가 됩니다.",
-  },
-  {
-    question: "HTTP 상태 코드 429의 의미는?",
-    code: null,
-    options: [
-      "요청 형식 오류",
-      "인증 필요",
-      "요청 횟수 초과 (Rate Limit)",
-      "서버 내부 오류",
-    ],
-    answer: 2,
-    explanation:
-      "429 Too Many Requests — 클라이언트가 짧은 시간 내에 너무 많은 요청을 보냈을 때 서버가 반환합니다. AI API에서 자주 마주치는 코드입니다.",
-  },
-  {
-    question: "React의 `useCallback` 훅의 주요 목적은?",
-    code: null,
-    options: [
-      "비동기 함수를 동기로 변환",
-      "함수 참조를 메모이제이션하여 불필요한 리렌더 방지",
-      "전역 상태를 구독",
-      "컴포넌트 언마운트 시 정리 작업 실행",
-    ],
-    answer: 1,
-    explanation:
-      "useCallback은 의존성 배열이 변경될 때만 새 함수 참조를 생성합니다. 자식 컴포넌트에 함수를 props로 전달할 때 불필요한 리렌더를 막는 데 사용합니다.",
-  },
-  {
-    question: "CSS `z-index`가 동작하려면 반드시 필요한 조건은?",
-    code: null,
-    options: [
-      "display: flex 설정",
-      "position이 static이 아닌 값으로 설정",
-      "overflow: hidden 설정",
-      "width/height 명시",
-    ],
-    answer: 1,
-    explanation:
-      "z-index는 position 속성이 relative, absolute, fixed, sticky 중 하나일 때만 동작합니다. position: static(기본값)인 요소에는 z-index가 적용되지 않습니다.",
-  },
-];
-
 // ─── Tag color map ────────────────────────────────────────────────────────────
 const tagStyle: Record<string, string> = {
   CC: "bg-green-950 text-green-400 border border-green-800",
   GH: "bg-blue-950 text-blue-400 border border-blue-800",
   AI: "bg-violet-950 text-violet-400 border border-violet-800",
+  Tools: "bg-orange-950 text-orange-400 border border-orange-800",
   도구: "bg-orange-950 text-orange-400 border border-orange-800",
+  Framework: "bg-sky-950 text-sky-400 border border-sky-800",
   프레임워크: "bg-sky-950 text-sky-400 border border-sky-800",
+  Industry: "bg-zinc-800 text-zinc-300 border border-zinc-700",
   업계: "bg-zinc-800 text-zinc-300 border border-zinc-700",
-  AI뉴스: "bg-violet-950 text-violet-400 border border-violet-800",
+  Languages: "bg-yellow-950 text-yellow-400 border border-yellow-800",
   언어: "bg-yellow-950 text-yellow-400 border border-yellow-800",
 };
 
 function getTagClass(tag: string) {
-  return (
-    tagStyle[tag] ?? "bg-zinc-800 text-zinc-300 border border-zinc-700"
-  );
+  return tagStyle[tag] ?? "bg-zinc-800 text-zinc-300 border border-zinc-700";
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -301,7 +44,8 @@ function AdSlot({ format }: { format: string }) {
   );
 }
 
-function TipCard({ tip, visible }: { tip: (typeof tips)[0]; visible: boolean }) {
+function TipCard({ tip, visible }: { tip: { category: string; tag: string; text: string }; visible: boolean }) {
+  const { t } = useT();
   return (
     <div
       style={{
@@ -318,7 +62,7 @@ function TipCard({ tip, visible }: { tip: (typeof tips)[0]; visible: boolean }) 
           {tip.category}
         </span>
         <div className="flex-1 h-px bg-zinc-800" />
-        <span className="text-zinc-600 font-mono text-[10px]">tip</span>
+        <span className="text-zinc-600 font-mono text-[10px]">{t("ad_tip_label")}</span>
       </div>
       <p className="text-zinc-300 leading-relaxed text-sm">{tip.text}</p>
     </div>
@@ -326,12 +70,59 @@ function TipCard({ tip, visible }: { tip: (typeof tips)[0]; visible: boolean }) 
 }
 
 function TrendingRepos() {
+  const { t } = useT();
+
+  const trendingRepos = [
+    {
+      name: "anthropics/claude-code",
+      stars: "12.4k",
+      desc: t("repo_claude_code_desc"),
+      lang: "TypeScript",
+      langColor: "#3178c6",
+    },
+    {
+      name: "microsoft/vscode",
+      stars: "165k",
+      desc: t("repo_vscode_desc"),
+      lang: "TypeScript",
+      langColor: "#3178c6",
+    },
+    {
+      name: "continuedev/continue",
+      stars: "21k",
+      desc: t("repo_continue_desc"),
+      lang: "TypeScript",
+      langColor: "#3178c6",
+    },
+    {
+      name: "ollama/ollama",
+      stars: "98k",
+      desc: t("repo_ollama_desc"),
+      lang: "Go",
+      langColor: "#00aed8",
+    },
+    {
+      name: "cline/cline",
+      stars: "38k",
+      desc: t("repo_cline_desc"),
+      lang: "TypeScript",
+      langColor: "#3178c6",
+    },
+    {
+      name: "vercel/ai",
+      stars: "14k",
+      desc: t("repo_vercel_ai_desc"),
+      lang: "TypeScript",
+      langColor: "#3178c6",
+    },
+  ];
+
   return (
     <section className="w-full">
       <div className="flex items-center gap-3 mb-4">
         <span className="text-green-500 font-mono text-xs">$</span>
         <h2 className="text-sm font-semibold text-zinc-300 tracking-wide">
-          인기 개발 도구 &amp; 레포
+          {t("ad_trending_title")}
         </h2>
         <div className="flex-1 h-px bg-zinc-800" />
         <span className="text-zinc-600 font-mono text-[10px]">trending</span>
@@ -377,20 +168,23 @@ function TrendingRepos() {
 }
 
 function DevNews() {
-  const newsTagMap: Record<string, string> = {
-    AI: "AI",
-    도구: "도구",
-    프레임워크: "프레임워크",
-    업계: "업계",
-    언어: "언어",
-  };
+  const { t } = useT();
+
+  const devNews = [
+    { time: t("news_1_time"), title: t("news_1_title"), tag: t("news_1_tag") },
+    { time: t("news_2_time"), title: t("news_2_title"), tag: t("news_2_tag") },
+    { time: t("news_3_time"), title: t("news_3_title"), tag: t("news_3_tag") },
+    { time: t("news_4_time"), title: t("news_4_title"), tag: t("news_4_tag") },
+    { time: t("news_5_time"), title: t("news_5_title"), tag: t("news_5_tag") },
+    { time: t("news_6_time"), title: t("news_6_title"), tag: t("news_6_tag") },
+  ];
 
   return (
     <section className="w-full">
       <div className="flex items-center gap-3 mb-4">
         <span className="text-green-500 font-mono text-xs">$</span>
         <h2 className="text-sm font-semibold text-zinc-300 tracking-wide">
-          개발자 뉴스
+          {t("ad_news_title")}
         </h2>
         <div className="flex-1 h-px bg-zinc-800" />
         <span className="text-zinc-600 font-mono text-[10px]">dev news</span>
@@ -402,7 +196,7 @@ function DevNews() {
             className="flex items-start gap-3 px-4 py-3 hover:bg-zinc-800/50 transition-colors duration-150"
           >
             <span
-              className={`mt-0.5 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${getTagClass(newsTagMap[item.tag] ?? item.tag)}`}
+              className={`mt-0.5 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shrink-0 ${getTagClass(item.tag)}`}
             >
               {item.tag}
             </span>
@@ -420,6 +214,46 @@ function DevNews() {
 }
 
 function MiniQuiz() {
+  const { t } = useT();
+
+  const quizItems = [
+    {
+      question: t("quiz_1_question"),
+      code: null,
+      options: [t("quiz_1_opt_0"), t("quiz_1_opt_1"), t("quiz_1_opt_2"), t("quiz_1_opt_3")],
+      answer: 1,
+      explanation: t("quiz_1_explanation"),
+    },
+    {
+      question: t("quiz_2_question"),
+      code: `type T = string extends unknown ? 'yes' : 'no';`,
+      options: [t("quiz_2_opt_0"), t("quiz_2_opt_1"), t("quiz_2_opt_2"), t("quiz_2_opt_3")],
+      answer: 1,
+      explanation: t("quiz_2_explanation"),
+    },
+    {
+      question: t("quiz_3_question"),
+      code: null,
+      options: [t("quiz_3_opt_0"), t("quiz_3_opt_1"), t("quiz_3_opt_2"), t("quiz_3_opt_3")],
+      answer: 2,
+      explanation: t("quiz_3_explanation"),
+    },
+    {
+      question: t("quiz_4_question"),
+      code: null,
+      options: [t("quiz_4_opt_0"), t("quiz_4_opt_1"), t("quiz_4_opt_2"), t("quiz_4_opt_3")],
+      answer: 1,
+      explanation: t("quiz_4_explanation"),
+    },
+    {
+      question: t("quiz_5_question"),
+      code: null,
+      options: [t("quiz_5_opt_0"), t("quiz_5_opt_1"), t("quiz_5_opt_2"), t("quiz_5_opt_3")],
+      answer: 1,
+      explanation: t("quiz_5_explanation"),
+    },
+  ];
+
   const [quizIndex, setQuizIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [score, setScore] = useState(0);
@@ -431,7 +265,7 @@ function MiniQuiz() {
   function handleSelect(idx: number) {
     if (answered) return;
     setSelected(idx);
-    setTotal((t) => t + 1);
+    setTotal((tv) => tv + 1);
     if (idx === quiz.answer) setScore((s) => s + 1);
   }
 
@@ -445,12 +279,12 @@ function MiniQuiz() {
       <div className="flex items-center gap-3 mb-4">
         <span className="text-green-500 font-mono text-xs">$</span>
         <h2 className="text-sm font-semibold text-zinc-300 tracking-wide">
-          미니 코딩 퀴즈
+          {t("ad_quiz_title")}
         </h2>
         <div className="flex-1 h-px bg-zinc-800" />
         {total > 0 && (
           <span className="text-zinc-500 font-mono text-[10px]">
-            {score}/{total} 정답
+            {score}/{total} {t("ad_score_suffix")}
           </span>
         )}
       </div>
@@ -504,14 +338,12 @@ function MiniQuiz() {
         {/* Explanation */}
         {answered && (
           <div
-            style={{
-              animation: "fadeSlideIn 0.4s ease forwards",
-            }}
+            style={{ animation: "fadeSlideIn 0.4s ease forwards" }}
             className="bg-zinc-800/60 border border-zinc-700 rounded-lg px-4 py-3 mb-4"
           >
             <p className="text-zinc-400 text-[11px] leading-relaxed">
               <span className="text-green-400 font-mono font-bold mr-1">
-                {selected === quiz.answer ? "✓ 정답!" : "✗ 오답"}
+                {selected === quiz.answer ? t("ad_quiz_correct") : t("ad_quiz_wrong")}
               </span>
               {quiz.explanation}
             </p>
@@ -527,7 +359,7 @@ function MiniQuiz() {
             onClick={handleNext}
             className="px-4 py-1.5 rounded-lg bg-green-900 border border-green-700 text-green-300 text-xs font-mono hover:bg-green-800 transition-colors duration-150 cursor-pointer"
           >
-            다음 문제 →
+            {t("ad_quiz_next")}
           </button>
         </div>
       </div>
@@ -536,7 +368,6 @@ function MiniQuiz() {
 }
 
 function ProgressBar({ elapsed }: { elapsed: number }) {
-  // Visual rhythm: fills over 60 seconds then resets
   const pct = (elapsed % 60) / 60;
   return (
     <div className="w-full h-0.5 bg-zinc-800 overflow-hidden">
@@ -568,9 +399,35 @@ export default function AdPage() {
 }
 
 function AdContent() {
+  const { t, locale } = useT();
   const searchParams = useSearchParams();
   const userId = searchParams.get("uid");
   const sessionId = searchParams.get("sid");
+
+  const tips = [
+    { category: "Claude Code", tag: "CC", text: t("tip_cc_1") },
+    { category: "Claude Code", tag: "CC", text: t("tip_cc_2") },
+    { category: "Claude Code", tag: "CC", text: t("tip_cc_3") },
+    { category: "Claude Code", tag: "CC", text: t("tip_cc_4") },
+    { category: "Claude Code", tag: "CC", text: t("tip_cc_5") },
+    { category: "Claude Code", tag: "CC", text: t("tip_cc_6") },
+    { category: "Claude Code", tag: "CC", text: t("tip_cc_7") },
+    { category: "Claude Code", tag: "CC", text: t("tip_cc_8") },
+    { category: "Claude Code", tag: "CC", text: t("tip_cc_9") },
+    { category: "Claude Code", tag: "CC", text: t("tip_cc_10") },
+    { category: "GitHub Copilot", tag: "GH", text: t("tip_gh_1") },
+    { category: "GitHub Copilot", tag: "GH", text: t("tip_gh_2") },
+    { category: "GitHub Copilot", tag: "GH", text: t("tip_gh_3") },
+    { category: "GitHub Copilot", tag: "GH", text: t("tip_gh_4") },
+    { category: "GitHub Copilot", tag: "GH", text: t("tip_gh_5") },
+    { category: locale === "en" ? "AI General" : "AI 코딩 일반", tag: "AI", text: t("tip_ai_1") },
+    { category: locale === "en" ? "AI General" : "AI 코딩 일반", tag: "AI", text: t("tip_ai_2") },
+    { category: locale === "en" ? "AI General" : "AI 코딩 일반", tag: "AI", text: t("tip_ai_3") },
+    { category: locale === "en" ? "AI General" : "AI 코딩 일반", tag: "AI", text: t("tip_ai_4") },
+    { category: locale === "en" ? "AI General" : "AI 코딩 일반", tag: "AI", text: t("tip_ai_5") },
+    { category: locale === "en" ? "AI General" : "AI 코딩 일반", tag: "AI", text: t("tip_ai_6") },
+    { category: locale === "en" ? "AI General" : "AI 코딩 일반", tag: "AI", text: t("tip_ai_7") },
+  ];
 
   const [tipIndex, setTipIndex] = useState(0);
   const [tipVisible, setTipVisible] = useState(true);
@@ -616,14 +473,19 @@ function AdContent() {
       window.removeEventListener("beforeunload", reportSession);
       reportSession();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportSession]);
 
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
   const timeStr =
-    minutes > 0
-      ? `${minutes}분 ${String(seconds).padStart(2, "0")}초`
-      : `${seconds}초`;
+    locale === "ko"
+      ? minutes > 0
+        ? `${minutes}분 ${String(seconds).padStart(2, "0")}초`
+        : `${seconds}초`
+      : minutes > 0
+        ? `${minutes}m ${String(seconds).padStart(2, "0")}s`
+        : `${seconds}s`;
 
   return (
     <>
@@ -645,7 +507,7 @@ function AdContent() {
               Code<span className="text-green-500">Earn</span>
             </span>
             <span className="hidden sm:block text-[11px] text-zinc-600">
-              광고를 시청하며 수익을 쌓고 있습니다
+              {t("ad_earning_header")}
             </span>
           </div>
           <div className="flex items-center gap-2 text-xs text-zinc-400">
@@ -679,7 +541,7 @@ function AdContent() {
                     ? "bg-green-500 scale-125"
                     : "bg-zinc-700 hover:bg-zinc-500"
                 }`}
-                aria-label={`팁 ${i + 1}`}
+                aria-label={`${t("ad_tip_aria")} ${i + 1}`}
               />
             ))}
           </div>
@@ -702,7 +564,7 @@ function AdContent() {
 
         {/* Footer */}
         <footer className="px-5 py-4 border-t border-zinc-800 text-center text-[11px] text-zinc-700 font-mono">
-          에이전트 응답이 완료되면 이 페이지는 자동으로 닫힙니다
+          {t("ad_footer")}
         </footer>
       </div>
     </>

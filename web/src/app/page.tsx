@@ -2,22 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useT } from "@/lib/i18n";
 
 // ─── Terminal Animation ───────────────────────────────────────────────────────
-
-const TERMINAL_LINES = [
-  { type: "prompt", text: "$ claude \"refactor payment module\"" },
-  { type: "info", text: "  Thinking..." },
-  { type: "spacer", text: "" },
-  { type: "ad-label", text: "  --- sponsored ---" },
-  { type: "ad-body", text: "  Sentry - Error tracking, free tier" },
-  { type: "ad-url", text: "  sentry.io/for/developers" },
-  { type: "ad-label", text: "  -----------------" },
-  { type: "spacer", text: "" },
-  { type: "earn", text: "  + $0.0031 earned" },
-  { type: "spacer", text: "" },
-  { type: "output", text: "  Done. 8 files, 247 lines changed." },
-];
 
 const DELAYS: Record<string, number> = {
   prompt: 100,
@@ -44,23 +31,39 @@ const COLOR_MAP: Record<string, string> = {
 };
 
 function TerminalDemo() {
+  const { t } = useT();
   const [visible, setVisible] = useState(0);
   const [cursor, setCursor] = useState(true);
 
+  const TERMINAL_LINES = [
+    { type: "prompt", text: "$ claude \"refactor payment module\"" },
+    { type: "info", text: t("terminal_thinking") },
+    { type: "spacer", text: "" },
+    { type: "ad-label", text: t("terminal_ad_label") },
+    { type: "ad-body", text: t("terminal_ad_body") },
+    { type: "ad-url", text: t("terminal_ad_url") },
+    { type: "ad-label", text: t("terminal_ad_label_end") },
+    { type: "spacer", text: "" },
+    { type: "earn", text: t("terminal_earned") },
+    { type: "spacer", text: "" },
+    { type: "output", text: t("terminal_done") },
+  ];
+
   useEffect(() => {
     if (visible >= TERMINAL_LINES.length) {
-      const t = setTimeout(() => setVisible(0), 4000);
-      return () => clearTimeout(t);
+      const timer = setTimeout(() => setVisible(0), 4000);
+      return () => clearTimeout(timer);
     }
     const line = TERMINAL_LINES[visible];
     const delay = DELAYS[line?.type ?? "spacer"] ?? 300;
-    const t = setTimeout(() => setVisible((v) => v + 1), delay);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setVisible((v) => v + 1), delay);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   useEffect(() => {
-    const t = setInterval(() => setCursor((c) => !c), 560);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setCursor((c) => !c), 560);
+    return () => clearInterval(timer);
   }, []);
 
   return (
@@ -107,6 +110,7 @@ function TerminalDemo() {
 // ─── Copy snippet with copy button ────────────────────────────────────────────
 
 function CopySnippet({ code }: { code: string }) {
+  const { t } = useT();
   const [copied, setCopied] = useState(false);
 
   function handleCopy() {
@@ -123,7 +127,7 @@ function CopySnippet({ code }: { code: string }) {
       <button
         onClick={handleCopy}
         className="text-zinc-600 hover:text-zinc-300 transition-colors ml-1"
-        aria-label="복사"
+        aria-label={t("copy_aria")}
       >
         {copied ? (
           <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5 text-zinc-300">
@@ -140,9 +144,26 @@ function CopySnippet({ code }: { code: string }) {
   );
 }
 
+// ─── Language Toggle ──────────────────────────────────────────────────────────
+
+function LangToggle() {
+  const { locale, setLocale } = useT();
+  return (
+    <button
+      onClick={() => setLocale(locale === "en" ? "ko" : "en")}
+      className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors font-mono"
+      aria-label="Toggle language"
+    >
+      {locale === "en" ? "EN / KO" : "KO / EN"}
+    </button>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
+  const { t } = useT();
+
   return (
     <div className="flex flex-col min-h-screen bg-zinc-950 text-zinc-100">
       {/* Nav */}
@@ -152,17 +173,18 @@ export default function Home() {
             code-earn
           </span>
           <div className="flex items-center gap-4">
+            <LangToggle />
             <Link
               href="/dashboard"
               className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
             >
-              로그인
+              {t("nav_login")}
             </Link>
             <a
               href="#install"
               className="text-xs font-medium text-zinc-900 bg-zinc-200 hover:bg-white px-3 py-1.5 rounded transition-colors"
             >
-              설치하기
+              {t("nav_install")}
             </a>
           </div>
         </div>
@@ -176,16 +198,15 @@ export default function Home() {
             <div className="flex-1 flex flex-col gap-7 pt-2">
               <div className="space-y-4">
                 <p className="text-xs font-mono text-zinc-500 tracking-wider uppercase">
-                  베타 테스트 중
+                  {t("hero_beta")}
                 </p>
                 <h1 className="text-4xl md:text-5xl lg:text-[3.25rem] font-bold tracking-tight leading-[1.1] text-zinc-100">
-                  대기 시간,
+                  {t("hero_headline_1")}
                   <br />
-                  낭비하지 마세요.
+                  {t("hero_headline_2")}
                 </h1>
                 <p className="text-base text-zinc-400 leading-relaxed max-w-sm">
-                  Claude Code가 생각하는 동안 터미널에 짧은 광고가 표시됩니다.
-                  코딩 흐름은 그대로, 부수입은 자동으로.
+                  {t("hero_desc")}
                 </p>
               </div>
 
@@ -196,13 +217,13 @@ export default function Home() {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 h-10 px-5 rounded bg-zinc-200 hover:bg-white text-zinc-900 text-sm font-semibold transition-colors"
                 >
-                  플러그인 설치
+                  {t("hero_cta_install")}
                 </a>
                 <a
                   href="#how"
                   className="inline-flex items-center gap-1 h-10 px-2 text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
                 >
-                  어떻게 작동하나요
+                  {t("hero_cta_how")}
                   <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 ml-0.5">
                     <path fillRule="evenodd" d="M6.22 3.22a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06l-4.25 4.25a.75.75 0 01-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 010-1.06z" clipRule="evenodd" />
                   </svg>
@@ -222,25 +243,25 @@ export default function Home() {
           <div className="max-w-5xl mx-auto">
             <div className="max-w-xl space-y-10">
               <h2 className="text-xs font-mono text-zinc-500 tracking-wider uppercase">
-                작동 방식
+                {t("how_title")}
               </h2>
 
               <ol className="space-y-8">
                 {[
                   {
                     n: "01",
-                    title: "GitHub에서 플러그인 클론",
-                    desc: "git clone 후 ~/.claude/plugins/ 에 복사하면 끝. setup.sh로 계정 등록.",
+                    title: t("how_step1_title"),
+                    desc: t("how_step1_desc"),
                   },
                   {
                     n: "02",
-                    title: "평소처럼 코딩한다",
-                    desc: "프롬프트를 보낼 때 터미널에 짧은 텍스트 광고가 뜹니다. 프롬프트나 코드는 수집하지 않습니다.",
+                    title: t("how_step2_title"),
+                    desc: t("how_step2_desc"),
                   },
                   {
                     n: "03",
-                    title: "잔액이 쌓이면 출금",
-                    desc: "대시보드에서 수익 확인. $20 이상이면 PayPal로 출금.",
+                    title: t("how_step3_title"),
+                    desc: t("how_step3_desc"),
                   },
                 ].map((step) => (
                   <li key={step.n} className="flex gap-6 items-start">
@@ -263,15 +284,13 @@ export default function Home() {
           <div className="max-w-5xl mx-auto">
             <div className="max-w-xl space-y-4">
               <h2 className="text-xs font-mono text-zinc-500 tracking-wider uppercase">
-                솔직하게 말하면
+                {t("honest_title")}
               </h2>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                지금은 베타입니다. 광고 인벤토리가 많지 않고, 수익도 아직 크지 않습니다.
-                하루에 커피 한 잔 값 수준이라면 솔직히 잘 된 케이스입니다.
+                {t("honest_p1")}
               </p>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                그래도 Claude Code를 이미 쓰고 있다면, 플러그인 하나 설치하는 데 5분이면 됩니다.
-                손해볼 것도 없고, 생각하고 싶지 않으면 언제든 제거하면 그만입니다.
+                {t("honest_p2")}
               </p>
             </div>
           </div>
@@ -281,17 +300,13 @@ export default function Home() {
         <section className="py-20 px-6 border-t border-zinc-900">
           <div className="max-w-5xl mx-auto flex flex-col gap-6">
             <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-zinc-200">설치해보기</h2>
+              <h2 className="text-lg font-semibold text-zinc-200">{t("footer_cta_title")}</h2>
               <p className="text-sm text-zinc-500">
-                Claude Code 필수. GitHub에서 클론 후 플러그인 디렉토리에 복사.
+                {t("footer_cta_desc")}
               </p>
             </div>
 
-            <div className="space-y-3">
-              <CopySnippet code="git clone https://github.com/bhpark1013/code-earn.git" />
-              <CopySnippet code="cp -r code-earn/plugin ~/.claude/plugins/marketplaces/custom/code-earn" />
-              <CopySnippet code="bash ~/.claude/plugins/marketplaces/custom/code-earn/hooks/setup.sh" />
-            </div>
+            <CopySnippet code="curl -fsSL https://raw.githubusercontent.com/bhpark1013/code-earn/main/install.sh | bash" />
 
             <div className="flex items-center gap-4 pt-1">
               <a
@@ -306,7 +321,7 @@ export default function Home() {
                 href="/dashboard"
                 className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
               >
-                대시보드
+                {t("footer_dashboard")}
               </Link>
             </div>
           </div>
@@ -319,16 +334,16 @@ export default function Home() {
           <span className="font-mono text-xs text-zinc-700">code-earn</span>
           <div className="flex gap-5 text-xs text-zinc-700">
             <a href="#" className="hover:text-zinc-400 transition-colors">
-              개인정보 처리방침
+              {t("footer_privacy")}
             </a>
             <a href="#" className="hover:text-zinc-400 transition-colors">
-              이용약관
+              {t("footer_terms")}
             </a>
             <a
               href="mailto:hello@codearn.dev"
               className="hover:text-zinc-400 transition-colors"
             >
-              문의
+              {t("footer_contact")}
             </a>
           </div>
           <span className="text-xs text-zinc-700">© 2025 CodeEarn</span>

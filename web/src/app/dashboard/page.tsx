@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useT } from "@/lib/i18n";
 
 interface EarningsData {
   totalEarnings: number;
@@ -22,16 +23,26 @@ interface EarningsData {
   adsEnabled?: boolean;
 }
 
-function relativeTime(dateStr: string): string {
+function relativeTime(dateStr: string, locale: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return `${seconds}초 전`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}분 전`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}시간 전`;
-  const days = Math.floor(hours / 24);
-  return `${days}일 전`;
+  if (locale === "ko") {
+    if (seconds < 60) return `${seconds}초 전`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}분 전`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}시간 전`;
+    const days = Math.floor(hours / 24);
+    return `${days}일 전`;
+  } else {
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }
 }
 
 function formatDuration(seconds: number): string {
@@ -46,7 +57,6 @@ function formatDate(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
-// Generate last 7 days mock structure (merged with real data if available)
 function buildDailyBars(
   dailyEarnings?: { date: string; amount: number }[]
 ): { label: string; amount: number }[] {
@@ -62,7 +72,7 @@ function buildDailyBars(
   return days;
 }
 
-// SVG icons - no emoji, no external lib
+// SVG icons
 const IconTrending = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="1,11 5,7 9,9 15,3" />
@@ -127,7 +137,33 @@ const IconToggleOff = () => (
   </svg>
 );
 
+// ─── Language Toggle ──────────────────────────────────────────────────────────
+
+function LangToggle() {
+  const { locale, setLocale } = useT();
+  return (
+    <button
+      onClick={() => setLocale(locale === "en" ? "ko" : "en")}
+      style={{
+        background: "transparent",
+        border: "1px solid #3f3f46",
+        color: "#71717a",
+        fontFamily: "'JetBrains Mono', monospace",
+        padding: "4px 10px",
+        borderRadius: "6px",
+        cursor: "pointer",
+        fontSize: "11px",
+        transition: "border-color 0.15s, color 0.15s",
+      }}
+      aria-label="Toggle language"
+    >
+      {locale === "en" ? "EN / KO" : "KO / EN"}
+    </button>
+  );
+}
+
 export default function Dashboard() {
+  const { t, locale } = useT();
   const [apiKey, setApiKey] = useState("");
   const [data, setData] = useState<EarningsData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -382,15 +418,16 @@ export default function Dashboard() {
             </span>
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <LangToggle />
             {data && (
-              <span className="tag tag-green" style={{ marginRight: "4px" }}>연결됨</span>
+              <span className="tag tag-green" style={{ marginRight: "4px" }}>{t("dash_connected")}</span>
             )}
             <button
               onClick={fetchEarnings}
               disabled={loading || !apiKey}
               className="btn-ghost"
               style={{ padding: "6px 10px" }}
-              title="새로고침"
+              title={t("dash_refresh_title")}
             >
               {loading ? <span className="spinner" /> : <IconRefresh />}
             </button>
@@ -402,9 +439,9 @@ export default function Dashboard() {
           {/* API Key Section */}
           <div style={{ marginBottom: "32px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-              <span style={{ fontSize: "13px", color: "#71717a", fontWeight: 500 }}>API Key</span>
+              <span style={{ fontSize: "13px", color: "#71717a", fontWeight: 500 }}>{t("dash_api_key_label")}</span>
               {!data && (
-                <span className="tag tag-zinc">미연결</span>
+                <span className="tag tag-zinc">{t("dash_not_connected")}</span>
               )}
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
@@ -423,7 +460,7 @@ export default function Dashboard() {
                 className="btn-primary"
                 style={{ whiteSpace: "nowrap" }}
               >
-                {loading ? <span className="spinner" /> : "조회"}
+                {loading ? <span className="spinner" /> : t("dash_lookup")}
               </button>
             </div>
             {error && (
@@ -431,7 +468,7 @@ export default function Dashboard() {
             )}
             {!data && !error && (
               <p style={{ marginTop: "6px", fontSize: "12px", color: "#3f3f46" }}>
-                플러그인 설치 시 발급된 API Key를 입력하세요
+                {t("dash_api_key_placeholder")}
               </p>
             )}
           </div>
@@ -450,7 +487,7 @@ export default function Dashboard() {
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div>
                       <div style={{ fontSize: "12px", color: "#52525b", marginBottom: "6px", fontWeight: 500 }}>
-                        총 수익
+                        {t("dash_total_earnings")}
                       </div>
                       <div className="mono" style={{ fontSize: "32px", fontWeight: 600, color: "#22c55e", letterSpacing: "-0.02em" }}>
                         ${data.totalEarnings.toFixed(4)}
@@ -464,7 +501,7 @@ export default function Dashboard() {
                   <div style={{ marginTop: "16px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                       <span style={{ fontSize: "11px", color: "#52525b" }}>
-                        출금 최소 금액까지
+                        {t("dash_payout_progress")}
                       </span>
                       <span className="mono" style={{ fontSize: "11px", color: "#71717a" }}>
                         ${data.pendingPayout.toFixed(2)} / ${MIN_PAYOUT}
@@ -483,7 +520,7 @@ export default function Dashboard() {
                 <div className="stat-card">
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
                     <span style={{ color: "#3f3f46" }}><IconClock /></span>
-                    <span style={{ fontSize: "12px", color: "#52525b", fontWeight: 500 }}>오늘 수익</span>
+                    <span style={{ fontSize: "12px", color: "#52525b", fontWeight: 500 }}>{t("dash_today")}</span>
                   </div>
                   <div className="mono" style={{ fontSize: "22px", fontWeight: 600, color: "#e4e4e7" }}>
                     ${data.todayEarnings.toFixed(4)}
@@ -494,7 +531,7 @@ export default function Dashboard() {
                 <div className="stat-card">
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
                     <span style={{ color: "#3f3f46" }}><IconWallet /></span>
-                    <span style={{ fontSize: "12px", color: "#52525b", fontWeight: 500 }}>출금 대기</span>
+                    <span style={{ fontSize: "12px", color: "#52525b", fontWeight: 500 }}>{t("dash_pending")}</span>
                   </div>
                   <div className="mono" style={{ fontSize: "22px", fontWeight: 600, color: "#e4e4e7" }}>
                     ${data.pendingPayout.toFixed(4)}
@@ -505,12 +542,12 @@ export default function Dashboard() {
                 <div className="stat-card" style={{ gridColumn: "1 / -1" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
                     <span style={{ color: "#3f3f46" }}><IconGrid /></span>
-                    <span style={{ fontSize: "12px", color: "#52525b", fontWeight: 500 }}>총 세션</span>
+                    <span style={{ fontSize: "12px", color: "#52525b", fontWeight: 500 }}>{t("dash_total_sessions")}</span>
                   </div>
                   <div className="mono" style={{ fontSize: "22px", fontWeight: 600, color: "#e4e4e7" }}>
                     {data.totalSessions ?? data.recentSessions.length}
                     <span style={{ fontSize: "13px", color: "#52525b", marginLeft: "6px", fontFamily: "'Outfit', sans-serif" }}>
-                      세션
+                      {t("dash_sessions_unit")}
                     </span>
                   </div>
                 </div>
@@ -518,7 +555,7 @@ export default function Dashboard() {
 
               {/* Daily Earnings Chart */}
               <div className="section-card" style={{ marginBottom: "24px" }}>
-                <div className="section-label">최근 7일 수익</div>
+                <div className="section-label">{t("dash_chart_title")}</div>
                 <hr className="divider" />
                 <div style={{ padding: "20px 16px 16px" }}>
                   <div style={{
@@ -559,7 +596,7 @@ export default function Dashboard() {
                   </div>
                   {bars.every((b) => b.amount === 0) && (
                     <p style={{ textAlign: "center", fontSize: "12px", color: "#3f3f46", marginTop: "12px" }}>
-                      최근 7일간 수익 데이터가 없습니다
+                      {t("dash_chart_empty")}
                     </p>
                   )}
                 </div>
@@ -567,18 +604,18 @@ export default function Dashboard() {
 
               {/* Recent Sessions */}
               <div className="section-card" style={{ marginBottom: "24px" }}>
-                <div className="section-label">최근 세션</div>
+                <div className="section-label">{t("dash_recent_sessions")}</div>
                 <hr className="divider" />
                 {data.recentSessions.length === 0 ? (
                   <div style={{ padding: "40px 16px", textAlign: "center", color: "#3f3f46", fontSize: "13px" }}>
-                    아직 세션이 없습니다
+                    {t("dash_no_sessions")}
                   </div>
                 ) : (
                   data.recentSessions.map((session, i) => (
                     <div key={i} className="session-row">
                       <div>
                         <div style={{ fontSize: "13px", color: "#a1a1aa", marginBottom: "2px" }}>
-                          {relativeTime(session.created_at)}
+                          {relativeTime(session.created_at, locale)}
                         </div>
                         <div className="mono" style={{ fontSize: "11px", color: "#3f3f46" }}>
                           {formatDuration(session.duration_seconds)} &middot; {formatDate(session.created_at)}
@@ -594,11 +631,13 @@ export default function Dashboard() {
 
               {/* Referral Section */}
               <div className="section-card" style={{ marginBottom: "24px" }}>
-                <div className="section-label">추천인 링크</div>
+                <div className="section-label">{t("dash_referral_title")}</div>
                 <hr className="divider" />
                 <div style={{ padding: "16px" }}>
                   <p style={{ fontSize: "13px", color: "#71717a", marginBottom: "12px" }}>
-                    친구를 초대하면 그 친구의 수익의 <span style={{ color: "#22c55e", fontWeight: 600 }}>10%</span>를 영구적으로 받습니다.
+                    {t("dash_referral_desc_pre")}
+                    <span style={{ color: "#22c55e", fontWeight: 600 }}>{t("dash_referral_desc_pct")}</span>
+                    {t("dash_referral_desc_post")}
                   </p>
                   <div className="copy-field">
                     <span className="mono" style={{ fontSize: "12px", color: "#71717a", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -611,15 +650,15 @@ export default function Dashboard() {
                       style={{ flexShrink: 0, padding: "5px 10px", gap: "4px" }}
                     >
                       {copied ? (
-                        <><span style={{ color: "#22c55e" }}><IconCheck /></span> 복사됨</>
+                        <><span style={{ color: "#22c55e" }}><IconCheck /></span> {t("dash_copied")}</>
                       ) : (
-                        <><IconCopy /> 복사</>
+                        <><IconCopy /> {t("dash_copy")}</>
                       )}
                     </button>
                   </div>
                   {data.referralBonus !== undefined && data.referralBonus > 0 && (
                     <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "8px" }}>
-                      <span style={{ fontSize: "12px", color: "#52525b" }}>추천 보너스</span>
+                      <span style={{ fontSize: "12px", color: "#52525b" }}>{t("dash_referral_bonus")}</span>
                       <span className="mono tag tag-green">${data.referralBonus.toFixed(4)}</span>
                     </div>
                   )}
@@ -631,11 +670,11 @@ export default function Dashboard() {
 
                 {/* Payout */}
                 <div className="section-card">
-                  <div className="section-label">출금</div>
+                  <div className="section-label">{t("dash_payout_title")}</div>
                   <hr className="divider" />
                   <div style={{ padding: "16px" }}>
                     <p style={{ fontSize: "12px", color: "#52525b", marginBottom: "12px" }}>
-                      최소 출금액: <span className="mono" style={{ color: "#71717a" }}>${MIN_PAYOUT}.00</span>
+                      {t("dash_min_payout")} <span className="mono" style={{ color: "#71717a" }}>${MIN_PAYOUT}.00</span>
                     </p>
                     <div className="mono" style={{ fontSize: "18px", fontWeight: 600, color: canPayout ? "#22c55e" : "#3f3f46", marginBottom: "14px" }}>
                       ${data.pendingPayout.toFixed(2)}
@@ -647,11 +686,11 @@ export default function Dashboard() {
                       style={{ width: "100%", justifyContent: "center" }}
                     >
                       {payoutLoading ? (
-                        <><span className="spinner" /> 처리 중...</>
+                        <><span className="spinner" /> {t("dash_payout_processing")}</>
                       ) : canPayout ? (
-                        "출금 신청"
+                        t("dash_payout_request")
                       ) : (
-                        `$${(MIN_PAYOUT - data.pendingPayout).toFixed(2)} 부족`
+                        `$${(MIN_PAYOUT - data.pendingPayout).toFixed(2)} ${t("dash_payout_short")}`
                       )}
                     </button>
                   </div>
@@ -659,22 +698,22 @@ export default function Dashboard() {
 
                 {/* Settings */}
                 <div className="section-card">
-                  <div className="section-label">설정</div>
+                  <div className="section-label">{t("dash_settings_title")}</div>
                   <hr className="divider" />
                   <div style={{ padding: "16px" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
                       <div>
                         <div style={{ fontSize: "13px", color: "#a1a1aa", fontWeight: 500, marginBottom: "2px" }}>
-                          광고 수익화
+                          {t("dash_ads_monetization")}
                         </div>
                         <div style={{ fontSize: "11px", color: "#52525b" }}>
-                          {adsEnabled ? "활성화됨" : "비활성화됨"}
+                          {adsEnabled ? t("dash_ads_enabled") : t("dash_ads_disabled")}
                         </div>
                       </div>
                       <button
                         onClick={() => setAdsEnabled(!adsEnabled)}
                         style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 0 }}
-                        aria-label={adsEnabled ? "광고 비활성화" : "광고 활성화"}
+                        aria-label={adsEnabled ? t("dash_ads_toggle_on") : t("dash_ads_toggle_off")}
                       >
                         {adsEnabled ? <IconToggleOn /> : <IconToggleOff />}
                       </button>
@@ -683,10 +722,10 @@ export default function Dashboard() {
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <div>
                         <div style={{ fontSize: "13px", color: "#a1a1aa", fontWeight: 500, marginBottom: "2px" }}>
-                          API Key 초기화
+                          {t("dash_reset_key")}
                         </div>
                         <div style={{ fontSize: "11px", color: "#52525b" }}>
-                          연결 해제
+                          {t("dash_disconnect")}
                         </div>
                       </div>
                       <button
@@ -698,7 +737,7 @@ export default function Dashboard() {
                         className="btn-ghost"
                         style={{ padding: "4px 10px", fontSize: "12px" }}
                       >
-                        초기화
+                        {t("dash_reset_btn")}
                       </button>
                     </div>
                   </div>

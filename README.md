@@ -5,14 +5,7 @@ Earn money while waiting for AI agent responses. A Claude Code plugin that displ
 ## Install
 
 ```bash
-# 1. Clone
-git clone https://github.com/bhpark1013/code-earn.git
-
-# 2. Copy plugin to Claude Code plugins directory
-cp -r code-earn/plugin ~/.claude/plugins/marketplaces/custom/code-earn
-
-# 3. Register your account
-bash ~/.claude/plugins/marketplaces/custom/code-earn/hooks/setup.sh
+curl -fsSL https://raw.githubusercontent.com/bhpark1013/code-earn/main/install.sh | bash
 ```
 
 Restart Claude Code. Ads will appear in the terminal when you submit prompts.
