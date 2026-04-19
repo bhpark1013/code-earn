@@ -71,10 +71,19 @@ def pass_through():
 def main():
     log("news hook invoked")
 
+    # Read stdin and check if user is invoking a slash command or meta action
+    # If so, skip news rotation to avoid changing state they're inspecting
+    stdin_data = {}
     try:
-        json.load(sys.stdin)
+        stdin_data = json.load(sys.stdin)
     except Exception:
         pass
+
+    prompt = (stdin_data.get("prompt") or "").strip()
+    if prompt.startswith("/feed") or prompt.startswith("/news"):
+        log("skipping: user invoked feed command")
+        pass_through()
+        return
 
     config = load_config()
     # Config is optional for news (no auth required)

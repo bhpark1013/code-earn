@@ -50,8 +50,9 @@ def main():
     except Exception:
         pass
 
-    # Clear state
-    for f in [SESSION_FILE, START_FILE, CURRENT_NEWS_FILE]:
+    # Clear session tracking only - keep .current-news for /feed to read
+    # (statusline has its own 10-min TTL to hide stale news)
+    for f in [SESSION_FILE, START_FILE]:
         try:
             os.remove(f)
         except OSError:
