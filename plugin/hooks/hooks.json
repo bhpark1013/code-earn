@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/show-ad.py",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/show-news.py",
             "timeout": 5
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/report-session.py",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/clear-news.py",
             "timeout": 5
           }
         ]

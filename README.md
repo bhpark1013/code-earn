@@ -1,6 +1,6 @@
-# code-earn
+# code-earn — DevFeed for Claude Code
 
-Earn money while waiting for AI agent responses. A Claude Code plugin that displays text ads during idle time.
+Read dev news while AI thinks. A Claude Code plugin that surfaces Hacker News, GitHub Trending, and AI releases in your status line during agent wait time.
 
 ## Install
 
@@ -8,24 +8,36 @@ Earn money while waiting for AI agent responses. A Claude Code plugin that displ
 curl -fsSL https://raw.githubusercontent.com/bhpark1013/code-earn/main/install.sh | bash
 ```
 
-Restart Claude Code. Ads will appear in the terminal when you submit prompts.
+Restart Claude Code. While the agent thinks, a news item rotates into your status line.
 
-## How it works
+## What you see
 
-1. You submit a prompt to Claude Code
-2. A short text ad appears in the terminal while the agent thinks
-3. Earnings are tracked and shown in the [dashboard](https://web-olive-three-47.vercel.app/dashboard)
+```
+[OMC#4.9.3] | 5h:3% | session:0m | ctx:0%
+[feed] HackerNews │ Rust 2.0 compiler is 10x faster than GCC   ▲847  💬234
+```
+
+## Sources
+
+- Hacker News top stories
+- GitHub trending repos (last 7 days)
+- More coming: Product Hunt, Reddit r/programming, AI newsletters
+
+## Privacy
+
+- No prompts, no code, no keystrokes collected
+- News is fetched on prompt submit only (rate-limited to 30s)
+- All data stays on your machine
 
 ## Disable / Uninstall
 
 ```bash
-# Disable ads (keep plugin installed)
-bash ~/.claude/plugins/marketplaces/custom/code-earn/hooks/setup.sh
-
-# Uninstall completely
+# Uninstall
 rm -rf ~/.claude/plugins/marketplaces/custom/code-earn
 rm -rf ~/.code-earn
 ```
+
+Then remove the UserPromptSubmit / Stop hooks from `~/.claude/settings.json`.
 
 ## Development
 
