@@ -8,6 +8,7 @@ import time
 import urllib.request
 
 CONFIG_DIR = os.path.expanduser("~/.code-earn")
+os.makedirs(CONFIG_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 LAST_OPEN_FILE = os.path.join(CONFIG_DIR, ".last_open")
 SESSION_FILE = os.path.join(CONFIG_DIR, ".current_session")
