@@ -29,15 +29,13 @@ Restart Claude Code. While the agent thinks, a news item rotates into your statu
 - News is fetched on prompt submit only (rate-limited to 30s)
 - All data stays on your machine
 
-## Disable / Uninstall
+## Uninstall
 
 ```bash
-# Uninstall
-rm -rf ~/.claude/plugins/marketplaces/custom/code-earn
-rm -rf ~/.code-earn
+curl -fsSL https://raw.githubusercontent.com/bhpark1013/code-earn/main/uninstall.sh | bash
 ```
 
-Then remove the UserPromptSubmit / Stop hooks from `~/.claude/settings.json`.
+Cleans plugin files, config, status line, hooks, and `/feed` command. A `settings.json.backup` is written for safety.
 
 ## Development
 
