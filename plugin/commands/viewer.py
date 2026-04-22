@@ -9,8 +9,10 @@ Controls:
 
 import json
 import os
+import locale as _locale
 import select
 import shutil
+import subprocess
 import sys
 import termios
 import time
@@ -18,7 +20,11 @@ import tty
 import urllib.request
 
 API_URL = "https://web-olive-three-47.vercel.app/api/news?limit=10"
-CURRENT_NEWS = os.path.expanduser("~/.code-earn/.current-news")
+CONFIG_DIR = os.path.expanduser("~/.code-earn")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
+CURRENT_NEWS = os.path.join(CONFIG_DIR, ".current-news")
+TRANSLATION_CACHE = os.path.join(CONFIG_DIR, ".translation-cache.json")
+TRANSLATOR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "hooks", "translator.py")
 REFRESH_SEC = 30
 
 CSI = "\x1b["
@@ -62,6 +68,80 @@ def current_url():
         return None
 
 
+def load_translation_cache():
+    if not os.path.exists(TRANSLATION_CACHE):
+        return {}
+    try:
+        with open(TRANSLATION_CACHE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def detect_lang():
+    for var in ("LANG", "LC_ALL", "LC_MESSAGES"):
+        val = os.environ.get(var, "")
+        if val:
+            code = val.split(".")[0].split("_")[0].lower()
+            if code and code != "c":
+                return code
+    try:
+        loc = _locale.getdefaultlocale()[0]
+        if loc:
+            return loc.split("_")[0].lower()
+    except Exception:
+        pass
+    return "en"
+
+
+def translation_settings():
+    translate_enabled = True
+    target_lang = None
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE) as f:
+                cfg = json.load(f)
+            if "translate" in cfg:
+                translate_enabled = bool(cfg["translate"])
+            target_lang = cfg.get("translateLang")
+        except Exception:
+            pass
+    if not target_lang:
+        target_lang = detect_lang()
+    if target_lang == "en":
+        translate_enabled = False
+    return translate_enabled, target_lang
+
+
+def apply_translations(items, target_lang, cache):
+    """Replace each item's title with cached translation if available,
+    otherwise launch background translator for missing ones."""
+    missing = []
+    for item in items:
+        original = item.get("title", "")
+        key = f"{target_lang}::{original}"
+        entry = cache.get(key)
+        if entry and entry.get("translation"):
+            item["title"] = entry["translation"]
+            item["_original_title"] = original
+        else:
+            missing.append(original)
+
+    # Kick off background translations for missing titles (rate-limited)
+    if os.path.exists(TRANSLATOR) and missing:
+        for title in missing[:3]:  # max 3 concurrent to avoid spamming
+            try:
+                subprocess.Popen(
+                    ["python3", TRANSLATOR, target_lang, title],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+            except Exception:
+                pass
+
+
 def truncate(s, n):
     return s if len(s) <= n else s[: n - 1] + "…"
 
@@ -77,10 +157,15 @@ def render(data, current, cols):
         print(f"  {YELLOW}error:{RESET} {err}")
         return
 
-    items = data.get("items", [])
+    items = list(data.get("items", []) or [])
     if not items:
         print(f"  {DIM}no news available{RESET}")
         return
+
+    translate_enabled, target_lang = translation_settings()
+    if translate_enabled:
+        cache = load_translation_cache()
+        apply_translations(items, target_lang, cache)
 
     # Title column = total - source(~14) - score(~10) - marker(2) - padding
     title_w = max(20, cols - 40)
