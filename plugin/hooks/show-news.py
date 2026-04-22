@@ -2,7 +2,9 @@
 """Fetch a dev news item and write it to .current-news for the statusline to pick up."""
 
 import json
+import locale as _locale
 import os
+import subprocess
 import sys
 import time
 import urllib.request
@@ -15,6 +17,8 @@ SESSION_FILE = os.path.join(CONFIG_DIR, ".current_session")
 START_FILE = os.path.join(CONFIG_DIR, ".session_start")
 CURRENT_NEWS_FILE = os.path.join(CONFIG_DIR, ".current-news")
 LOG_FILE = os.path.join(CONFIG_DIR, "hook.log")
+TRANSLATION_CACHE = os.path.join(CONFIG_DIR, ".translation-cache.json")
+TRANSLATOR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "translator.py")
 
 DEFAULT_API = "https://web-olive-three-47.vercel.app"
 RATE_LIMIT_SEC = 30  # Fetch new news at most every 30s
@@ -67,6 +71,63 @@ def fetch_news(api_url):
 
 def pass_through():
     print(json.dumps({"continue": True, "suppressOutput": True}))
+
+
+def detect_lang():
+    """Return 2-letter language code from env ($LANG) or 'en'."""
+    for var in ("LANG", "LC_ALL", "LC_MESSAGES"):
+        val = os.environ.get(var, "")
+        if val:
+            code = val.split(".")[0].split("_")[0].lower()
+            if code and code != "c":
+                return code
+    try:
+        loc = _locale.getdefaultlocale()[0]
+        if loc:
+            return loc.split("_")[0].lower()
+    except Exception:
+        pass
+    return "en"
+
+
+def translation_settings(config):
+    translate_enabled = True
+    target_lang = None
+    if config:
+        if "translate" in config:
+            translate_enabled = bool(config["translate"])
+        target_lang = config.get("translateLang")
+    if not target_lang:
+        target_lang = detect_lang()
+    # Skip if target is English (no translation needed)
+    if target_lang == "en":
+        translate_enabled = False
+    return translate_enabled, target_lang
+
+
+def cached_translation(title, target_lang):
+    if not os.path.exists(TRANSLATION_CACHE):
+        return None
+    try:
+        with open(TRANSLATION_CACHE) as f:
+            cache = json.load(f)
+        return cache.get(f"{target_lang}::{title}", {}).get("translation")
+    except Exception:
+        return None
+
+
+def launch_translator(title, target_lang):
+    """Spawn translator as background process. Non-blocking."""
+    try:
+        subprocess.Popen(
+            ["python3", TRANSLATOR, target_lang, title],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception as e:
+        log(f"translator launch failed: {e}")
 
 
 def main():
@@ -122,18 +183,36 @@ def main():
         return
 
     pick = response["pick"]
-    log(f"showing news: {pick.get('title', '')[:50]}")
+    original_title = pick.get("title", "")
+    log(f"showing news: {original_title[:50]}")
+
+    translate_enabled, target_lang = translation_settings(config)
+    display_title = original_title
+    if translate_enabled:
+        cached = cached_translation(original_title, target_lang)
+        if cached:
+            display_title = cached
+            log(f"using cached translation ({target_lang})")
 
     # Write news item to file for statusline to render
+    record = {
+        "title": display_title,
+        "url": pick.get("url", ""),
+        "source": pick.get("source", ""),
+        "score": pick.get("score"),
+        "comments": pick.get("comments"),
+        "timestamp": int(time.time() * 1000),
+    }
+    if translate_enabled and display_title == original_title:
+        # Not yet translated — keep original for background worker to match against
+        record["original_title"] = original_title
     with open(CURRENT_NEWS_FILE, "w") as f:
-        json.dump({
-            "title": pick.get("title", ""),
-            "url": pick.get("url", ""),
-            "source": pick.get("source", ""),
-            "score": pick.get("score"),
-            "comments": pick.get("comments"),
-            "timestamp": int(time.time() * 1000),
-        }, f)
+        json.dump(record, f, ensure_ascii=False)
+
+    # Launch background translation if enabled and not yet cached
+    if translate_enabled and display_title == original_title:
+        launch_translator(original_title, target_lang)
+        log(f"launched translator for {target_lang}")
 
     pass_through()
 
