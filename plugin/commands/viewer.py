@@ -146,6 +146,41 @@ def truncate(s, n):
     return s if len(s) <= n else s[: n - 1] + "…"
 
 
+def supports_osc8():
+    """Heuristic check for terminals known to render OSC 8 hyperlinks."""
+    tp = os.environ.get("TERM_PROGRAM", "")
+    term = os.environ.get("TERM", "")
+    known = {"iTerm.app", "WezTerm", "vscode", "ghostty"}
+    if tp in known:
+        return True
+    if "kitty" in term or os.environ.get("KITTY_WINDOW_ID"):
+        return True
+    if os.environ.get("ALACRITTY_SOCKET"):
+        return True
+    if os.environ.get("WEZTERM_EXECUTABLE"):
+        return True
+    # Apple Terminal started shipping OSC 8 support; gate by version if needed
+    if tp == "Apple_Terminal":
+        return True
+    return False
+
+
+def short_url(url):
+    if not url:
+        return ""
+    try:
+        from urllib.parse import urlparse
+        p = urlparse(url)
+        host = p.netloc.replace("www.", "")
+        path = p.path or ""
+        if len(path) > 30:
+            path = path[:29] + "…"
+        s = host + path
+        return s if len(s) < 45 else s[:44] + "…"
+    except Exception:
+        return url[:40]
+
+
 def render(data, current, cols):
     clear()
     header = f"{BOLD}{CYAN}  code-earn feed{RESET}  {DIM}refreshing every {REFRESH_SEC}s · Ctrl+C to quit · r to refresh{RESET}"
@@ -167,8 +202,10 @@ def render(data, current, cols):
         cache = load_translation_cache()
         apply_translations(items, target_lang, cache)
 
-    # Title column = total - source(~14) - score(~10) - marker(2) - padding
-    title_w = max(20, cols - 40)
+    clickable = supports_osc8()
+    # Reserve extra room for URL tail when links aren't clickable
+    tail_w = 0 if clickable else 46
+    title_w = max(20, cols - 40 - tail_w)
 
     for item in items:
         title = truncate(item.get("title", ""), title_w)
@@ -181,12 +218,20 @@ def render(data, current, cols):
         score_str = f" {YELLOW}▲{score}{RESET}" if score else ""
         comments_str = f" {GREY}💬{comments}{RESET}" if comments else ""
 
-        # OSC 8 hyperlink around title
+        # OSC 8 hyperlink around title (harmless if unsupported)
         linked_title = f"\x1b]8;;{url}\x07{WHITE}{title}{RESET}\x1b]8;;\x07" if url else f"{WHITE}{title}{RESET}"
-        print(f"  {marker} {CYAN}{source:<15}{RESET} {linked_title}{score_str}{comments_str}")
+
+        url_tail = ""
+        if not clickable and url:
+            url_tail = f"  {GREY}{short_url(url)}{RESET}"
+
+        print(f"  {marker} {CYAN}{source:<15}{RESET} {linked_title}{score_str}{comments_str}{url_tail}")
 
     print()
-    print(f"  {DIM}{GREEN}●{DIM} = currently displayed in status line{RESET}")
+    footer = f"{DIM}{GREEN}●{DIM} = currently displayed in status line{RESET}"
+    if not clickable:
+        footer += f"  {DIM}· URLs shown on right (cmd+click unsupported){RESET}"
+    print(f"  {footer}")
 
 
 def key_available(timeout):
