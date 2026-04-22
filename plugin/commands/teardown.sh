@@ -1,0 +1,40 @@
+#!/bin/bash
+# code-earn statusLine teardown
+# Runs via /code-earn:teardown slash command. Idempotent.
+
+set -e
+
+DST_HUD="$HOME/.claude/hud/code-earn-hud.mjs"
+SETTINGS="$HOME/.claude/settings.json"
+OMC_HUD="$HOME/.claude/hud/omc-hud.mjs"
+
+rm -f "$DST_HUD"
+
+if [ -f "$SETTINGS" ]; then
+  python3 - "$SETTINGS" "$OMC_HUD" <<'PY'
+import json, sys, shutil, os
+path, fallback = sys.argv[1], sys.argv[2]
+shutil.copyfile(path, path + ".backup")
+with open(path) as f:
+    data = json.load(f)
+current = data.get("statusLine", {}).get("command", "")
+if "code-earn-hud" in current:
+    if os.path.exists(fallback):
+        data["statusLine"] = {"type": "command", "command": f"node {fallback}"}
+        print(f"  statusLine reverted to OMC HUD")
+    else:
+        data.pop("statusLine", None)
+        print("  statusLine removed (no OMC HUD found)")
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+else:
+    print("  statusLine already clean — no change")
+PY
+fi
+
+# Clean runtime state
+rm -rf "$HOME/.code-earn"
+
+echo ""
+echo "  Done. You can now /plugin remove code-earn if you want to fully uninstall."
