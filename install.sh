@@ -1,41 +1,67 @@
 #!/bin/bash
-# CodeEarn - one-line installer
+# CodeEarn post-install helper
+# Sets up the status line wrapper (the plugin system handles hooks/commands, but
+# statusLine is a Claude Code global config that plugins can't modify directly).
 # Usage: curl -fsSL https://raw.githubusercontent.com/bhpark1013/code-earn/main/install.sh | bash
 
 set -e
 
-PLUGIN_DIR="$HOME/.claude/plugins/marketplaces/custom/code-earn"
-TMP_DIR=$(mktemp -d)
+HUD_DIR="$HOME/.claude/hud"
+HUD_FILE="$HUD_DIR/code-earn-hud.mjs"
+SETTINGS="$HOME/.claude/settings.json"
+RAW_BASE="https://raw.githubusercontent.com/bhpark1013/code-earn/main"
 
 echo ""
-echo "  code-earn installer"
-echo "  -------------------"
+echo "  code-earn — status line wrapper setup"
+echo "  --------------------------------------"
 echo ""
 
-# Check if already installed
-if [ -d "$PLUGIN_DIR" ]; then
-  echo "  Updating existing installation..."
-  rm -rf "$PLUGIN_DIR"
+# Verify plugin is installed
+PLUGIN_DIR_PATTERN="$HOME/.claude/plugins"
+if [ ! -d "$PLUGIN_DIR_PATTERN" ]; then
+  echo "  Warning: Claude Code plugins directory not found."
+  echo "  Install the plugin first: /plugin marketplace add bhpark1013/code-earn && /plugin install code-earn"
+  echo ""
 fi
 
-# Clone and copy plugin
-echo "  Downloading..."
-git clone --depth 1 --quiet https://github.com/bhpark1013/code-earn.git "$TMP_DIR" 2>/dev/null
+# Download HUD wrapper
+echo "  Installing status line wrapper..."
+mkdir -p "$HUD_DIR"
+curl -fsSL "$RAW_BASE/hud/code-earn-hud.mjs" -o "$HUD_FILE"
+chmod +x "$HUD_FILE"
 
-echo "  Installing plugin..."
-mkdir -p "$PLUGIN_DIR"
-cp -r "$TMP_DIR/plugin/"* "$PLUGIN_DIR/"
-cp -r "$TMP_DIR/plugin/.claude-plugin" "$PLUGIN_DIR/"
+# Patch statusLine in settings.json (preserve existing commands, add our wrapper)
+if [ -f "$SETTINGS" ]; then
+  echo "  Configuring statusLine..."
+  python3 - "$SETTINGS" "$HUD_FILE" <<'PY'
+import json, sys, shutil
 
-# Cleanup
-rm -rf "$TMP_DIR"
+path = sys.argv[1]
+hud_path = sys.argv[2]
+shutil.copyfile(path, path + ".backup")
 
-echo "  Running setup..."
+with open(path) as f:
+    data = json.load(f)
+
+current = data.get("statusLine", {})
+current_cmd = current.get("command", "")
+
+# Only patch if not already pointing at our wrapper
+if "code-earn-hud" not in current_cmd:
+    data["statusLine"] = {"type": "command", "command": f"node {hud_path}"}
+
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PY
+fi
+
 echo ""
-
-# Run setup
-bash "$PLUGIN_DIR/hooks/setup.sh"
-
+echo "  Done."
 echo ""
-echo "  Done. Restart Claude Code to activate."
+echo "  Next:"
+echo "    1. If not installed yet, run inside Claude Code:"
+echo "         /plugin marketplace add bhpark1013/code-earn"
+echo "         /plugin install code-earn@code-earn"
+echo "    2. Restart Claude Code."
 echo ""

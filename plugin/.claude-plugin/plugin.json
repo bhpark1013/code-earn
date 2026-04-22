@@ -1,12 +1,12 @@
 {
   "name": "code-earn",
-  "version": "0.1.0",
-  "description": "Earn money while waiting for AI agent responses. Displays text ads during idle time and tracks earnings.",
+  "version": "0.2.0",
+  "description": "DevFeed — HackerNews and GitHub Trending in your status line while Claude Code thinks",
   "author": {
-    "name": "brandazine",
-    "email": "hello@codearn.dev"
+    "name": "bhpark1013",
+    "url": "https://github.com/bhpark1013"
   },
-  "homepage": "https://web-olive-three-47.vercel.app",
+  "homepage": "https://github.com/bhpark1013/code-earn",
   "license": "MIT",
-  "keywords": ["ads", "earnings", "passive-income", "developer-tools"]
+  "keywords": ["news", "productivity", "devfeed", "hackernews"]
 }

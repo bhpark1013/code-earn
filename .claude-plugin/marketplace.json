@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "code-earn",
+  "description": "DevFeed — dev news in your Claude Code status line while AI thinks",
+  "owner": {
+    "name": "bhpark1013",
+    "url": "https://github.com/bhpark1013"
+  },
+  "plugins": [
+    {
+      "name": "code-earn",
+      "description": "Surfaces HN + GitHub Trending in the status line during agent wait time",
+      "source": "./plugin",
+      "category": "productivity",
+      "keywords": ["news", "productivity", "devfeed", "hackernews"]
+    }
+  ]
+}

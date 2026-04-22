@@ -4,6 +4,15 @@ Read dev news while AI thinks. A Claude Code plugin that surfaces Hacker News, G
 
 ## Install
 
+Inside Claude Code:
+
+```
+/plugin marketplace add bhpark1013/code-earn
+/plugin install code-earn@code-earn
+```
+
+Then run the post-install script once to hook up the status line wrapper and `/feed` command:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/bhpark1013/code-earn/main/install.sh | bash
 ```
