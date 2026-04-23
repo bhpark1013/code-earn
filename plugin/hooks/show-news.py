@@ -245,11 +245,10 @@ def main():
     }
     if summary:
         record["summary"] = summary
-    if translate_enabled and display_title == original_title:
-        record["original_title"] = original_title
-    elif not translate_enabled:
-        # Keep original for summarizer to match against even when no translation
-        record["original_title"] = original_title
+    # Always keep original_title so background workers (translator/summarizer)
+    # can match the record back even when the title has already been swapped
+    # in from a cached translation.
+    record["original_title"] = original_title
 
     with open(CURRENT_NEWS_FILE, "w") as f:
         json.dump(record, f, ensure_ascii=False)
