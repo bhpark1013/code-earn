@@ -10,9 +10,14 @@ then writes to cache AND updates .current-news if the title matches.
 import json
 import locale
 import os
-import subprocess
 import sys
 import time
+
+from background_claude import (
+    log_background_event,
+    run_background_prompt,
+    summarize_process_error,
+)
 
 CONFIG_DIR = os.path.expanduser("~/.code-earn")
 CACHE_FILE = os.path.join(CONFIG_DIR, ".translation-cache.json")
@@ -85,12 +90,12 @@ def call_claude(title, target_lang):
     )
 
     try:
-        result = subprocess.run(
-            ["claude", "--print", "--model", "haiku", prompt],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
+        result = run_background_prompt(prompt, task_name="translation", timeout=30)
+        if result.returncode != 0:
+            log_background_event(
+                f"translator Claude call failed ({target_lang}): {summarize_process_error(result)}"
+            )
+            return None
         output = (result.stdout or "").strip()
         # Strip common wrapping
         output = output.strip('"').strip("'").strip()
@@ -98,7 +103,8 @@ def call_claude(title, target_lang):
         if not output or len(output) > len(title) * 3:
             return None
         return output
-    except Exception:
+    except Exception as exc:
+        log_background_event(f"translator exception ({target_lang}): {exc}")
         return None
 
 

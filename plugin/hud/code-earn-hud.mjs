@@ -92,6 +92,13 @@ if (existsSync(NEWS_FILE)) {
         scoreStr +
         commentsStr +
         urlTail;
+
+      // Optional second line: article summary
+      const summary = (raw.summary || "").trim();
+      if (summary) {
+        const summaryText = truncate(summary, 140);
+        newsLine += `\n\x1b[90m       ↳\x1b[0m \x1b[2m${summaryText}\x1b[0m`;
+      }
     }
   } catch {}
 }

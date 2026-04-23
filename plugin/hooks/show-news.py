@@ -9,6 +9,8 @@ import sys
 import time
 import urllib.request
 
+from background_claude import BACKGROUND_CHILD_ENV, build_background_env
+
 CONFIG_DIR = os.path.expanduser("~/.code-earn")
 os.makedirs(CONFIG_DIR, exist_ok=True)
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
@@ -18,7 +20,9 @@ START_FILE = os.path.join(CONFIG_DIR, ".session_start")
 CURRENT_NEWS_FILE = os.path.join(CONFIG_DIR, ".current-news")
 LOG_FILE = os.path.join(CONFIG_DIR, "hook.log")
 TRANSLATION_CACHE = os.path.join(CONFIG_DIR, ".translation-cache.json")
+SUMMARY_CACHE = os.path.join(CONFIG_DIR, ".summary-cache.json")
 TRANSLATOR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "translator.py")
+SUMMARIZER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "summarizer.py")
 
 DEFAULT_API = "https://web-olive-three-47.vercel.app"
 RATE_LIMIT_SEC = 30  # Fetch new news at most every 30s
@@ -124,13 +128,43 @@ def launch_translator(title, target_lang):
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             stdin=subprocess.DEVNULL,
+            env=build_background_env(),
             start_new_session=True,
         )
     except Exception as e:
         log(f"translator launch failed: {e}")
 
 
+def cached_summary(url, target_lang):
+    if not os.path.exists(SUMMARY_CACHE):
+        return None
+    try:
+        with open(SUMMARY_CACHE) as f:
+            cache = json.load(f)
+        return cache.get(f"{target_lang}::{url}", {}).get("summary")
+    except Exception:
+        return None
+
+
+def launch_summarizer(url, title, target_lang):
+    try:
+        subprocess.Popen(
+            ["python3", SUMMARIZER, target_lang, url, title],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            env=build_background_env(),
+            start_new_session=True,
+        )
+    except Exception as e:
+        log(f"summarizer launch failed: {e}")
+
+
 def main():
+    if os.environ.get(BACKGROUND_CHILD_ENV) == "1":
+        pass_through()
+        return
+
     log("news hook invoked")
 
     # Read stdin and check if user is invoking a slash command or meta action
@@ -187,6 +221,9 @@ def main():
     log(f"showing news: {original_title[:50]}")
 
     translate_enabled, target_lang = translation_settings(config)
+    summary_lang = target_lang if translate_enabled else "en"
+    url = pick.get("url", "")
+
     display_title = original_title
     if translate_enabled:
         cached = cached_translation(original_title, target_lang)
@@ -194,18 +231,26 @@ def main():
             display_title = cached
             log(f"using cached translation ({target_lang})")
 
+    # Cached summary check (keyed by url + summary_lang)
+    summary = cached_summary(url, summary_lang) if url else None
+
     # Write news item to file for statusline to render
     record = {
         "title": display_title,
-        "url": pick.get("url", ""),
+        "url": url,
         "source": pick.get("source", ""),
         "score": pick.get("score"),
         "comments": pick.get("comments"),
         "timestamp": int(time.time() * 1000),
     }
+    if summary:
+        record["summary"] = summary
     if translate_enabled and display_title == original_title:
-        # Not yet translated — keep original for background worker to match against
         record["original_title"] = original_title
+    elif not translate_enabled:
+        # Keep original for summarizer to match against even when no translation
+        record["original_title"] = original_title
+
     with open(CURRENT_NEWS_FILE, "w") as f:
         json.dump(record, f, ensure_ascii=False)
 
@@ -213,6 +258,11 @@ def main():
     if translate_enabled and display_title == original_title:
         launch_translator(original_title, target_lang)
         log(f"launched translator for {target_lang}")
+
+    # Launch summarizer if URL present and no cached summary yet
+    if url and not summary:
+        launch_summarizer(url, original_title, summary_lang)
+        log(f"launched summarizer ({summary_lang})")
 
     pass_through()
 
