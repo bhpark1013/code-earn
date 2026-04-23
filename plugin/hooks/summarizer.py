@@ -96,8 +96,9 @@ def translate_summary(text, target_lang):
     }.get(target_lang, target_lang)
 
     prompt = (
-        f"Summarize the following article description in one short sentence in {lang_name}. "
-        f"Keep technical terms in English. Output ONLY the summary, no prefix, no quotes:\n\n{text}"
+        f"Summarize the following article description in exactly three short sentences in {lang_name}. "
+        f"Keep technical terms in English. Output ONLY the summary as plain sentences separated by spaces, "
+        f"no prefix, no quotes, no bullet points:\n\n{text}"
     )
     try:
         result = run_background_prompt(prompt, task_name="summary", timeout=30)
@@ -107,7 +108,7 @@ def translate_summary(text, target_lang):
             )
             return None
         out = (result.stdout or "").strip().strip('"').strip("'")
-        if 10 <= len(out) <= 300:
+        if 10 <= len(out) <= 800:
             return out
     except Exception as exc:
         log_background_event(f"summarizer exception ({target_lang}): {exc}")
@@ -201,8 +202,8 @@ def main():
             summary = translate_summary(raw_desc, target_lang) or raw_desc
 
         # Trim summary to something reasonable
-        if len(summary) > 200:
-            summary = summary[:199] + "…"
+        if len(summary) > 600:
+            summary = summary[:599] + "…"
 
         cache = load_cache()
         cache[key] = {"summary": summary, "ts": int(time.time())}
