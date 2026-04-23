@@ -86,7 +86,7 @@ def call_claude(title, target_lang):
 
     try:
         result = subprocess.run(
-            ["claude", "--print", prompt],
+            ["claude", "--print", "--model", "haiku", prompt],
             capture_output=True,
             text=True,
             timeout=30,
