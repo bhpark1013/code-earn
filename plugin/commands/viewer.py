@@ -114,9 +114,9 @@ def translation_settings():
 
 
 def apply_translations(items, target_lang, cache):
-    """Replace each item's title with cached translation if available,
-    otherwise launch background translator for missing ones."""
-    missing = []
+    """Replace each item's title with cached translation if available.
+    Does NOT spawn background translators — statusline rotation handles that
+    one item at a time to avoid notification spam."""
     for item in items:
         original = item.get("title", "")
         key = f"{target_lang}::{original}"
@@ -124,22 +124,6 @@ def apply_translations(items, target_lang, cache):
         if entry and entry.get("translation"):
             item["title"] = entry["translation"]
             item["_original_title"] = original
-        else:
-            missing.append(original)
-
-    # Kick off background translations for missing titles (rate-limited)
-    if os.path.exists(TRANSLATOR) and missing:
-        for title in missing[:3]:  # max 3 concurrent to avoid spamming
-            try:
-                subprocess.Popen(
-                    ["python3", TRANSLATOR, target_lang, title],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                    stdin=subprocess.DEVNULL,
-                    start_new_session=True,
-                )
-            except Exception:
-                pass
 
 
 def truncate(s, n):
