@@ -27,9 +27,13 @@ try {
 } catch {}
 
 let parentOutput = "";
+let maxCols = 120; // safe default — Claude Code's statusline doesn't pass width
 if (existsSync(CONFIG_FILE)) {
   try {
     const cfg = JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
+    if (typeof cfg.maxStatuslineCols === "number" && cfg.maxStatuslineCols > 20) {
+      maxCols = cfg.maxStatuslineCols;
+    }
     const parentCmd = (cfg.parentStatusLine || "").trim();
     if (parentCmd) {
       const result = spawnSync(parentCmd, [], {
@@ -49,7 +53,7 @@ if (existsSync(NEWS_FILE)) {
     const raw = JSON.parse(readFileSync(NEWS_FILE, "utf-8"));
     const age = (Date.now() - raw.timestamp) / 1000;
     if (age < NEWS_TTL_SEC) {
-      const title = truncate(raw.title || "", 80);
+      const title = truncateCols(raw.title || "", maxCols);
       const source = raw.source || "";
       const url = raw.url || "";
       const scoreStr = raw.score ? ` \x1b[33m▲${raw.score}\x1b[0m` : "";
@@ -71,17 +75,43 @@ if (existsSync(NEWS_FILE)) {
 
       const summary = (raw.summary || "").trim();
       if (summary) {
-        const summaryText = truncate(summary, 500);
+        // 8 cols for the "       ↳ " prefix
+        const summaryText = truncateCols(summary, Math.max(20, maxCols - 8));
         newsLine += `\n\x1b[90m       ↳\x1b[0m \x1b[2m${summaryText}\x1b[0m`;
       }
     }
   } catch {}
 }
 
-function truncate(s, n) {
+// Display width of a code point: CJK / fullwidth = 2, ASCII = 1.
+// Conservative for unknown — prefer overcounting so we don't overflow.
+function charCols(cp) {
+  if (cp < 0x20) return 0;
+  if (cp >= 0x1100 && (
+    cp <= 0x115f ||
+    cp === 0x2329 || cp === 0x232a ||
+    (cp >= 0x2e80 && cp <= 0xa4cf && cp !== 0x303f) ||
+    (cp >= 0xac00 && cp <= 0xd7a3) ||
+    (cp >= 0xf900 && cp <= 0xfaff) ||
+    (cp >= 0xfe30 && cp <= 0xfe4f) ||
+    (cp >= 0xff00 && cp <= 0xff60) ||
+    (cp >= 0xffe0 && cp <= 0xffe6) ||
+    (cp >= 0x1f300 && cp <= 0x1faff)
+  )) return 2;
+  return 1;
+}
+
+function truncateCols(s, maxCols) {
   if (!s) return "";
-  if (s.length <= n) return s;
-  return s.slice(0, n - 1) + "…";
+  let cols = 0;
+  let out = "";
+  for (const ch of s) {
+    const w = charCols(ch.codePointAt(0));
+    if (cols + w > maxCols - 1) return out + "…";
+    out += ch;
+    cols += w;
+  }
+  return out;
 }
 
 if (parentOutput) {
