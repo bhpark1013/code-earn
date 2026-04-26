@@ -28,11 +28,13 @@ try {
 
 let parentOutput = "";
 let maxCols = 120; // safe default — Claude Code's statusline doesn't pass width
+let userOverrodeMaxCols = false;
 if (existsSync(CONFIG_FILE)) {
   try {
     const cfg = JSON.parse(readFileSync(CONFIG_FILE, "utf-8"));
     if (typeof cfg.maxStatuslineCols === "number" && cfg.maxStatuslineCols > 20) {
       maxCols = cfg.maxStatuslineCols;
+      userOverrodeMaxCols = true;
     }
     const parentCmd = (cfg.parentStatusLine || "").trim();
     if (parentCmd) {
@@ -43,6 +45,27 @@ if (existsSync(CONFIG_FILE)) {
         timeout: 3000,
       });
       parentOutput = (result.stdout || "").trimEnd();
+    }
+  } catch {}
+}
+
+// Detect actual terminal column width when running inside cmux. Claude Code
+// doesn't pass terminal dimensions to statusline commands, but cmux exposes
+// pane geometry via its CLI — query it so the news/summary lines truncate
+// to the live column count instead of the static default.
+if (!userOverrodeMaxCols && process.env.CMUX_SOCKET && process.env.CMUX_WORKSPACE_ID) {
+  try {
+    const result = spawnSync(
+      "cmux",
+      ["rpc", "pane.list", JSON.stringify({ workspace_id: process.env.CMUX_WORKSPACE_ID })],
+      { encoding: "utf-8", timeout: 500 }
+    );
+    if (result.stdout) {
+      const data = JSON.parse(result.stdout);
+      const focused = (data.panes || []).find((p) => p.focused) || (data.panes || [])[0];
+      if (focused && typeof focused.columns === "number" && focused.columns > 20) {
+        maxCols = focused.columns;
+      }
     }
   } catch {}
 }
