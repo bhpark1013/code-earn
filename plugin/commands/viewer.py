@@ -248,20 +248,43 @@ def key_available(timeout):
 def read_key():
     """Read one logical key. Arrow keys (ESC [ A/B/C/D) are returned as
     'UP', 'DOWN', 'RIGHT', 'LEFT'. Plain ESC returns 'ESC'. Otherwise the
-    raw character is returned."""
-    ch = sys.stdin.read(1)
-    if ch != "\x1b":
-        return ch
-    # Could be a CSI sequence; peek for follow-up bytes.
-    if not key_available(0.05):
-        return "ESC"
-    next_ch = sys.stdin.read(1)
-    if next_ch != "[":
-        return "ESC"
-    if not key_available(0.05):
-        return "ESC"
-    code = sys.stdin.read(1)
-    return {"A": "UP", "B": "DOWN", "C": "RIGHT", "D": "LEFT"}.get(code, "ESC")
+    raw character is returned.
+
+    Uses os.read on the raw fd so the bytes that follow ESC don't get
+    swallowed by Python's stdin buffer (select() can't see those)."""
+    fd = sys.stdin.fileno()
+    try:
+        chunk = os.read(fd, 8)
+    except OSError:
+        return ""
+    if not chunk:
+        return ""
+    if chunk[0:1] != b"\x1b":
+        try:
+            return chunk[0:1].decode("utf-8", errors="ignore")
+        except Exception:
+            return ""
+    # Possible CSI escape sequence (ESC [ ...). If the rest didn't arrive
+    # in the same read, peek the fd one more time.
+    if len(chunk) < 3:
+        try:
+            r, _, _ = select.select([fd], [], [], 0.05)
+            if r:
+                chunk += os.read(fd, 8)
+        except OSError:
+            pass
+    if len(chunk) >= 3 and chunk[0:2] == b"\x1b[":
+        code = chunk[2:3].decode("ascii", errors="ignore")
+        return {"A": "UP", "B": "DOWN", "C": "RIGHT", "D": "LEFT"}.get(code, "ESC")
+    return "ESC"
+
+
+def fd_key_available(fd, timeout):
+    try:
+        r, _, _ = select.select([fd], [], [], timeout)
+        return bool(r)
+    except Exception:
+        return False
 
 
 def items_count(data):
@@ -308,7 +331,7 @@ def main():
                 render(data, current_url(), term_cols(), selected_idx)
                 continue
 
-            if interactive and key_available(min(remaining, 1.0)):
+            if interactive and fd_key_available(fd, min(remaining, 1.0)):
                 key = read_key()
                 if key in ("q", "Q"):
                     break
