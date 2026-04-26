@@ -24,7 +24,19 @@ if [ -n "$TMUX" ]; then
   exit 0
 fi
 
-# 2a. WezTerm vertical split
+# 2a. cmux split (cmux is a Ghostty-based terminal with rich CLI)
+if [ -n "$CMUX_SOCKET" ] && command -v cmux >/dev/null 2>&1; then
+  split_out=$(cmux new-split right 2>&1) || split_out=""
+  surface_ref=$(echo "$split_out" | grep -oE 'surface:[0-9]+' | head -1)
+  if [ -n "$surface_ref" ]; then
+    cmux send --surface "$surface_ref" "python3 '$VIEWER'
+" >/dev/null 2>&1
+    echo "  Opened news viewer in a cmux split pane"
+    exit 0
+  fi
+fi
+
+# 2b. WezTerm vertical split
 if [ -n "$WEZTERM_PANE" ] && command -v wezterm >/dev/null 2>&1; then
   wezterm cli split-pane --right --percent 35 -- python3 "$VIEWER" >/dev/null
   echo "  Opened news viewer in a WezTerm split pane"
