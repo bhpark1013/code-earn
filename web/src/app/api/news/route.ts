@@ -22,10 +22,10 @@ async function fetchHackerNews(): Promise<NewsItem[]> {
       { next: { revalidate: 300 } }
     );
     const ids: number[] = await topRes.json();
-    const top20 = ids.slice(0, 20);
+    const topIds = ids.slice(0, 50);
 
     const stories = await Promise.all(
-      top20.map(async (id) => {
+      topIds.map(async (id) => {
         const r = await fetch(
           `https://hacker-news.firebaseio.com/v0/item/${id}.json`,
           { next: { revalidate: 300 } }
@@ -57,7 +57,7 @@ async function fetchGitHubTrending(): Promise<NewsItem[]> {
     const res = await fetch(
       "https://api.github.com/search/repositories?q=created:>" +
         new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10) +
-        "&sort=stars&order=desc&per_page=10",
+        "&sort=stars&order=desc&per_page=30",
       {
         headers: { Accept: "application/vnd.github+json" },
         next: { revalidate: 900 },
