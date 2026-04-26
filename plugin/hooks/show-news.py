@@ -9,7 +9,11 @@ import sys
 import time
 import urllib.request
 
-from background_claude import BACKGROUND_CHILD_ENV, build_background_env
+from background_claude import (
+    BACKGROUND_CHILD_ENV,
+    atomic_write_json,
+    build_background_env,
+)
 
 CONFIG_DIR = os.path.expanduser("~/.code-earn")
 os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -250,8 +254,7 @@ def main():
     # in from a cached translation.
     record["original_title"] = original_title
 
-    with open(CURRENT_NEWS_FILE, "w") as f:
-        json.dump(record, f, ensure_ascii=False)
+    atomic_write_json(CURRENT_NEWS_FILE, record)
 
     # Launch background translation if enabled and not yet cached
     if translate_enabled and display_title == original_title:

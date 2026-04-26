@@ -14,6 +14,7 @@ import sys
 import time
 
 from background_claude import (
+    atomic_write_json,
     log_background_event,
     looks_like_error_output,
     run_background_prompt,
@@ -66,8 +67,7 @@ def update_current_news(original_title, translated_title):
         data["title"] = translated_title
         data["original_title"] = original_title
         try:
-            with open(CURRENT_NEWS_FILE, "w") as f:
-                json.dump(data, f, ensure_ascii=False)
+            atomic_write_json(CURRENT_NEWS_FILE, data)
         except Exception:
             pass
 

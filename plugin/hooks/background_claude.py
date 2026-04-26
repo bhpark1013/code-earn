@@ -135,6 +135,18 @@ _AUTH_ERROR_MARKERS = (
 )
 
 
+def atomic_write_json(path: str, data: Any) -> None:
+    """Write JSON to path atomically so concurrent readers never see a
+    half-written or empty file. Important: show-news, translator, and
+    summarizer all rewrite ~/.code-earn/.current-news, and the statusline
+    HUD reads it on every render. Truncate-then-write would briefly expose
+    an empty file."""
+    tmp = f"{path}.tmp.{os.getpid()}"
+    with open(tmp, "w") as f:
+        json.dump(data, f, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
 def looks_like_error_output(text: str) -> bool:
     """Detect Claude CLI status/error messages that should NOT be cached as
     real model output (auth errors, rate limits, etc.)."""

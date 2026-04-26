@@ -12,6 +12,7 @@ import time
 import urllib.request
 
 from background_claude import (
+    atomic_write_json,
     log_background_event,
     looks_like_error_output,
     run_background_prompt,
@@ -133,8 +134,7 @@ def update_current_news(original_title, summary):
     if data.get("original_title") == original_title or data.get("title") == original_title:
         data["summary"] = summary
         try:
-            with open(CURRENT_NEWS_FILE, "w") as f:
-                json.dump(data, f, ensure_ascii=False)
+            atomic_write_json(CURRENT_NEWS_FILE, data)
         except Exception:
             pass
 
