@@ -15,6 +15,7 @@ import time
 
 from background_claude import (
     log_background_event,
+    looks_like_error_output,
     run_background_prompt,
     summarize_process_error,
 )
@@ -99,8 +100,14 @@ def call_claude(title, target_lang):
         output = (result.stdout or "").strip()
         # Strip common wrapping
         output = output.strip('"').strip("'").strip()
-        # If output is empty or looks off, fall back
+        # If output is empty, looks like a CLI status/error, or is suspiciously
+        # long, fall back rather than cache garbage as a "translation".
         if not output or len(output) > len(title) * 3:
+            return None
+        if looks_like_error_output(output):
+            log_background_event(
+                f"translator rejected error-looking output ({target_lang}): {output[:80]}"
+            )
             return None
         return output
     except Exception as exc:

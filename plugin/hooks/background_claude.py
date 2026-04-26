@@ -124,6 +124,26 @@ def run_background_prompt(
     )
 
 
+_AUTH_ERROR_MARKERS = (
+    "not logged in",
+    "please run /login",
+    "invalid api key",
+    "authentication failed",
+    "session expired",
+    "rate limit",
+    "context limit",
+)
+
+
+def looks_like_error_output(text: str) -> bool:
+    """Detect Claude CLI status/error messages that should NOT be cached as
+    real model output (auth errors, rate limits, etc.)."""
+    if not text:
+        return True
+    lowered = text.lower()
+    return any(marker in lowered for marker in _AUTH_ERROR_MARKERS)
+
+
 def summarize_process_error(result: subprocess.CompletedProcess[str]) -> str:
     message = (result.stderr or result.stdout or "").strip()
     if message:

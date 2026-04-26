@@ -13,6 +13,7 @@ import urllib.request
 
 from background_claude import (
     log_background_event,
+    looks_like_error_output,
     run_background_prompt,
     summarize_process_error,
 )
@@ -108,6 +109,11 @@ def translate_summary(text, target_lang):
             )
             return None
         out = (result.stdout or "").strip().strip('"').strip("'")
+        if looks_like_error_output(out):
+            log_background_event(
+                f"summarizer rejected error-looking output ({target_lang}): {out[:80]}"
+            )
+            return None
         if 10 <= len(out) <= 800:
             return out
     except Exception as exc:
