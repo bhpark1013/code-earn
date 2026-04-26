@@ -12,7 +12,7 @@ import { join } from "node:path";
 const HOME = homedir();
 const OMC_HUD = join(HOME, ".claude/hud/omc-hud.mjs");
 const NEWS_FILE = join(HOME, ".code-earn/.current-news");
-const NEWS_TTL_SEC = 600; // Show news for 10 minutes after creation
+const NEWS_TTL_SEC = 3600; // Show news for 1 hour after creation
 
 // Read stdin (Claude Code passes session info as JSON)
 let stdinData = "";
