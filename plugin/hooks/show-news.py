@@ -263,6 +263,24 @@ def main():
         launch_summarizer(url, original_title, summary_lang)
         log(f"launched summarizer ({summary_lang})")
 
+    # Pre-warm cache: launch summarizers for the other candidates so the next
+    # prompt's pick is likely already cached and renders the summary instantly.
+    items = response.get("items") or []
+    prewarmed = 0
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_url = item.get("url", "")
+        item_title = item.get("title", "")
+        if not item_url or item_url == url:
+            continue
+        if cached_summary(item_url, summary_lang):
+            continue
+        launch_summarizer(item_url, item_title, summary_lang)
+        prewarmed += 1
+    if prewarmed:
+        log(f"pre-warmed {prewarmed} summarizers ({summary_lang})")
+
     pass_through()
 
 
