@@ -19,7 +19,7 @@ import time
 import tty
 import urllib.request
 
-API_URL = "https://web-olive-three-47.vercel.app/api/news?limit=10"
+API_URL = "https://web-olive-three-47.vercel.app/api/news?limit=50"
 CONFIG_DIR = os.path.expanduser("~/.code-earn")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 CURRENT_NEWS = os.path.join(CONFIG_DIR, ".current-news")
