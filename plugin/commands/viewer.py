@@ -2,9 +2,12 @@
 """Live-updating news viewer. Runs in a separate tmux pane or terminal window.
 
 Controls:
-  Ctrl+C  quit
-  q       quit (when input available)
+  ↑/k     move selection up
+  ↓/j     move selection down
+  Enter/o open selected item in browser
   r       refresh now
+  q       quit
+  Ctrl+C  quit
 """
 
 import json
@@ -18,6 +21,7 @@ import termios
 import time
 import tty
 import urllib.request
+import webbrowser
 
 API_URL = "https://web-olive-three-47.vercel.app/api/news?limit=50"
 CONFIG_DIR = os.path.expanduser("~/.code-earn")
@@ -165,9 +169,12 @@ def short_url(url):
         return url[:40]
 
 
-def render(data, current, cols):
+def render(data, current, cols, selected_idx=0):
     clear()
-    header = f"{BOLD}{CYAN}  code-earn feed{RESET}  {DIM}refreshing every {REFRESH_SEC}s · Ctrl+C to quit · r to refresh{RESET}"
+    header = (
+        f"{BOLD}{CYAN}  code-earn feed{RESET}  "
+        f"{DIM}↑↓/jk select · enter/o open · r refresh · q quit{RESET}"
+    )
     print(header)
     print()
 
@@ -191,28 +198,43 @@ def render(data, current, cols):
     tail_w = 0 if clickable else 46
     title_w = max(20, cols - 40 - tail_w)
 
-    for item in items:
+    for idx, item in enumerate(items):
         title = truncate(item.get("title", ""), title_w)
         source = item.get("source", "")
         score = item.get("score")
         url = item.get("url", "")
         comments = item.get("comments")
 
-        marker = f"{GREEN}●{RESET}" if url == current else " "
+        is_selected = idx == selected_idx
+        is_current = url == current
+        if is_selected:
+            cursor = f"{YELLOW}▶{RESET}"
+        elif is_current:
+            cursor = f"{GREEN}●{RESET}"
+        else:
+            cursor = " "
+
         score_str = f" {YELLOW}▲{score}{RESET}" if score else ""
         comments_str = f" {GREY}💬{comments}{RESET}" if comments else ""
 
         # OSC 8 hyperlink around title (harmless if unsupported)
-        linked_title = f"\x1b]8;;{url}\x07{WHITE}{title}{RESET}\x1b]8;;\x07" if url else f"{WHITE}{title}{RESET}"
+        title_color = BOLD + WHITE if is_selected else WHITE
+        linked_title = (
+            f"\x1b]8;;{url}\x07{title_color}{title}{RESET}\x1b]8;;\x07"
+            if url
+            else f"{title_color}{title}{RESET}"
+        )
 
         url_tail = ""
         if not clickable and url:
             url_tail = f"  {GREY}{short_url(url)}{RESET}"
 
-        print(f"  {marker} {CYAN}{source:<15}{RESET} {linked_title}{score_str}{comments_str}{url_tail}")
+        print(f"  {cursor} {CYAN}{source:<15}{RESET} {linked_title}{score_str}{comments_str}{url_tail}")
 
     print()
-    footer = f"{DIM}{GREEN}●{DIM} = currently displayed in status line{RESET}"
+    footer = (
+        f"{DIM}{YELLOW}▶{DIM} selected · {GREEN}●{DIM} in status line{RESET}"
+    )
     if not clickable:
         footer += f"  {DIM}· URLs shown on right (cmd+click unsupported){RESET}"
     print(f"  {footer}")
@@ -221,6 +243,40 @@ def render(data, current, cols):
 def key_available(timeout):
     r, _, _ = select.select([sys.stdin], [], [], timeout)
     return bool(r)
+
+
+def read_key():
+    """Read one logical key. Arrow keys (ESC [ A/B/C/D) are returned as
+    'UP', 'DOWN', 'RIGHT', 'LEFT'. Plain ESC returns 'ESC'. Otherwise the
+    raw character is returned."""
+    ch = sys.stdin.read(1)
+    if ch != "\x1b":
+        return ch
+    # Could be a CSI sequence; peek for follow-up bytes.
+    if not key_available(0.05):
+        return "ESC"
+    next_ch = sys.stdin.read(1)
+    if next_ch != "[":
+        return "ESC"
+    if not key_available(0.05):
+        return "ESC"
+    code = sys.stdin.read(1)
+    return {"A": "UP", "B": "DOWN", "C": "RIGHT", "D": "LEFT"}.get(code, "ESC")
+
+
+def items_count(data):
+    return len(list((data or {}).get("items", []) or []))
+
+
+def open_selected(data, idx):
+    items = list((data or {}).get("items", []) or [])
+    if 0 <= idx < len(items):
+        url = items[idx].get("url")
+        if url:
+            try:
+                webbrowser.open(url)
+            except Exception:
+                pass
 
 
 def main():
@@ -234,10 +290,12 @@ def main():
         interactive = False
         old = None
 
+    selected_idx = 0
+
     try:
         data = fetch_news()
         last_fetch = time.time()
-        render(data, current_url(), term_cols())
+        render(data, current_url(), term_cols(), selected_idx)
 
         while True:
             # Wait up to REFRESH_SEC for a key, then auto-refresh
@@ -246,20 +304,38 @@ def main():
             if remaining <= 0:
                 data = fetch_news()
                 last_fetch = time.time()
-                render(data, current_url(), term_cols())
+                selected_idx = max(0, min(selected_idx, items_count(data) - 1))
+                render(data, current_url(), term_cols(), selected_idx)
                 continue
 
             if interactive and key_available(min(remaining, 1.0)):
-                ch = sys.stdin.read(1)
-                if ch in ("q", "Q"):
+                key = read_key()
+                if key in ("q", "Q"):
                     break
-                if ch in ("r", "R"):
+                if key in ("r", "R"):
                     data = fetch_news()
                     last_fetch = time.time()
-                    render(data, current_url(), term_cols())
+                    selected_idx = max(0, min(selected_idx, items_count(data) - 1))
+                    render(data, current_url(), term_cols(), selected_idx)
+                    continue
+                if key in ("j", "J", "DOWN"):
+                    n = items_count(data)
+                    if n:
+                        selected_idx = (selected_idx + 1) % n
+                        render(data, current_url(), term_cols(), selected_idx)
+                    continue
+                if key in ("k", "K", "UP"):
+                    n = items_count(data)
+                    if n:
+                        selected_idx = (selected_idx - 1) % n
+                        render(data, current_url(), term_cols(), selected_idx)
+                    continue
+                if key in ("\r", "\n", "o", "O"):
+                    open_selected(data, selected_idx)
+                    continue
             else:
                 # Tick: re-render every second to keep current marker fresh
-                render(data, current_url(), term_cols())
+                render(data, current_url(), term_cols(), selected_idx)
                 if not interactive:
                     time.sleep(1)
     finally:
