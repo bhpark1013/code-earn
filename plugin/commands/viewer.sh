@@ -1,5 +1,10 @@
 #!/bin/bash
-# Launch the code-earn news viewer in a split pane (tmux) or new window (macOS)
+# Launch the code-earn news viewer.
+# Preference order:
+#   1. tmux split (if inside tmux)
+#   2. Native terminal split (WezTerm / Kitty / iTerm2)
+#   3. New macOS Terminal window
+#   4. Print run instructions
 
 set -e
 
@@ -11,17 +16,48 @@ if [ ! -f "$VIEWER" ]; then
   exit 1
 fi
 
+# 1. tmux split
 if [ -n "$TMUX" ]; then
-  # Running inside tmux -> vertical split (40% width on the right)
   tmux split-window -h -p 35 "python3 $VIEWER"
   tmux select-pane -L
-  echo "  Opened news viewer in a tmux split (Ctrl+b → arrow to focus it, Ctrl+b x to close)"
+  echo "  Opened news viewer in a tmux split (Ctrl+b → arrow to focus, Ctrl+b x to close)"
   exit 0
 fi
 
+# 2a. WezTerm vertical split
+if [ -n "$WEZTERM_PANE" ] && command -v wezterm >/dev/null 2>&1; then
+  wezterm cli split-pane --right --percent 35 -- python3 "$VIEWER" >/dev/null
+  echo "  Opened news viewer in a WezTerm split pane"
+  exit 0
+fi
+
+# 2b. Kitty vertical split (requires allow_remote_control in kitty.conf)
+if [ -n "$KITTY_WINDOW_ID" ] && command -v kitty >/dev/null 2>&1; then
+  if kitty @ launch --type=window --location=vsplit --no-response --keep-focus python3 "$VIEWER" >/dev/null 2>&1; then
+    echo "  Opened news viewer in a Kitty split window"
+    exit 0
+  fi
+fi
+
+# 2c. iTerm2 vertical split
+if [ "$TERM_PROGRAM" = "iTerm.app" ]; then
+  osascript <<EOF >/dev/null
+tell application "iTerm"
+  tell current session of current window
+    set newSession to (split vertically with default profile)
+    tell newSession
+      write text "python3 '$VIEWER'"
+    end tell
+  end tell
+end tell
+EOF
+  echo "  Opened news viewer in an iTerm2 vertical split"
+  exit 0
+fi
+
+# 3. macOS Terminal — new window (no native split scriptability)
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  # macOS: open a new Terminal window
-  osascript <<EOF
+  osascript <<EOF >/dev/null
 tell application "Terminal"
   do script "python3 '$VIEWER'"
   activate
@@ -31,5 +67,6 @@ EOF
   exit 0
 fi
 
-echo "  Not inside tmux. To run the viewer in another terminal:"
+# 4. Fallback
+echo "  No supported terminal split detected. Run the viewer manually:"
 echo "    python3 $VIEWER"
