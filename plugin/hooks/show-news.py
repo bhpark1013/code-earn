@@ -25,7 +25,7 @@ TRANSLATOR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "translato
 SUMMARIZER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "summarizer.py")
 
 DEFAULT_API = "https://web-olive-three-47.vercel.app"
-RATE_LIMIT_SEC = 30  # Fetch new news at most every 30s
+RATE_LIMIT_SEC = 0  # Fetch fresh news on every prompt submit
 
 
 def log(msg):
