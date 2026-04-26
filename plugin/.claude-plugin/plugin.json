@@ -1,6 +1,6 @@
 {
   "name": "code-earn",
-  "version": "0.7.10",
+  "version": "0.7.11",
   "description": "DevFeed — HackerNews and GitHub Trending in your status line while Claude Code thinks",
   "author": {
     "name": "bhpark1013",
@@ -8,5 +8,10 @@
   },
   "homepage": "https://github.com/bhpark1013/code-earn",
   "license": "MIT",
-  "keywords": ["news", "productivity", "devfeed", "hackernews"]
+  "keywords": [
+    "news",
+    "productivity",
+    "devfeed",
+    "hackernews"
+  ]
 }

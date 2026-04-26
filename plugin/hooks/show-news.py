@@ -68,7 +68,10 @@ def save_timestamp():
 
 def fetch_news(api_url):
     try:
-        url = f"{api_url}/api/news?limit=5"
+        # Fetch a deeper pool so we can prefer items whose summary is already
+        # cached (= instant render) and still have plenty of fresh items to
+        # warm the cache for next time.
+        url = f"{api_url}/api/news?limit=20"
         req = urllib.request.Request(url, method="GET")
         with urllib.request.urlopen(req, timeout=3) as resp:
             return json.loads(resp.read())
@@ -215,17 +218,36 @@ def main():
             f.write(str(time.time()))
 
     response = fetch_news(api_url)
-    if not response or not response.get("pick"):
+    items = (response or {}).get("items") or []
+    api_pick = (response or {}).get("pick")
+    if not api_pick and not items:
         log("no news received")
         pass_through()
         return
 
-    pick = response["pick"]
-    original_title = pick.get("title", "")
-    log(f"showing news: {original_title[:50]}")
-
     translate_enabled, target_lang = translation_settings(config)
     summary_lang = target_lang if translate_enabled else "en"
+
+    # Prefer an item whose summary is already cached so the statusline
+    # renders the summary line instantly. Fall back to the API's pick.
+    pick = None
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_url = item.get("url")
+        if item_url and cached_summary(item_url, summary_lang):
+            pick = item
+            log(f"picked cached-summary item: {item.get('title','')[:50]}")
+            break
+    if not pick:
+        pick = api_pick or (items[0] if items else None)
+    if not pick:
+        log("no news received")
+        pass_through()
+        return
+
+    original_title = pick.get("title", "")
+    log(f"showing news: {original_title[:50]}")
     url = pick.get("url", "")
 
     display_title = original_title
@@ -266,11 +288,14 @@ def main():
         launch_summarizer(url, original_title, summary_lang)
         log(f"launched summarizer ({summary_lang})")
 
-    # Pre-warm cache: launch summarizers for the other candidates so the next
-    # prompt's pick is likely already cached and renders the summary instantly.
-    items = response.get("items") or []
+    # Pre-warm cache: launch summarizers for up to PREWARM_MAX uncached
+    # candidates so the next prompt is more likely to hit a cached pick.
+    # Capped to avoid spawning a Claude subprocess per item when limit=20.
+    PREWARM_MAX = 5
     prewarmed = 0
     for item in items:
+        if prewarmed >= PREWARM_MAX:
+            break
         if not isinstance(item, dict):
             continue
         item_url = item.get("url", "")
